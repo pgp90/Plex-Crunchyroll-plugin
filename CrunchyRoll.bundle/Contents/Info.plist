@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleIdentifier</key>
+	<string>com.plexapp.plugins.CrunchyRoll</string>
+	<key>PlexClientCapabilities</key>
+	<dict>
+		<key>protocols</key>
+		<array>
+			<string>webkit</string>
+		</array>
+	</dict>
+	<key>PlexClientPlatforms</key>
+	<string>MacOSX</string>
+	<key>PlexFrameworkVersion</key>
+	<string>2</string>
+	<key>PlexMediaContainer</key>
+	<array>
+		<string>Flash</string>
+	</array>
+	<key>PlexPluginMode</key>
+	<string>AlwaysOn</string>
+	<key>PlexPluginRegions</key>
+	<array>
+		<string>US</string>
+	</array>
+	<key>PlexURLServices</key>
+	<dict>
+		<key>CrunchyRoll</key>
+		<dict>
+			<key>URLPattern</key>
+			<string>http://.*crunchyroll\.com/.*</string>
+			<key>Identifier</key>
+			<string>com.plexapp.plugins.CrunchyRoll</string>
+			<key>TestURLs</key>
+			<array>
+				<string>http://www.crunchyroll.com/bleach/episode-35-543645</string>
+				<string>http://www.crunchyroll.com/media-543645</string>
+				<string>http://www.crunchyroll.com/11eyes/episode-1-piros-jszaka-red-night-535080</string>
+			</array>
+		</dict>
+	</dict>
+</dict>
+</plist>

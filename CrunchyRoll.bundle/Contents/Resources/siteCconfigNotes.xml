@@ -1,0 +1,246 @@
+<?xml version="1.0"?>
+<site site="http://www.crunchyroll.com" plugin="http://static.lln.crunchyroll.com/flash/20111107193103.fb103f9787f179cd0f27be64da5c23f2/StandardVideoPlayer.swf" initialState="playing" version="2.0">
+	everything (should always work but not always fill the screen)
+	<crop x="0" y="0" width="0" height="-32"/>
+	small player
+	<crop x="11" y="0" width="590" height="-32"/>
+	large player SD
+	<crop x="0" y="0" width="0" height="-32"/>
+	large player 480
+	<crop x="0" y="0" width="0" height="-32"/>
+	large player 720
+	<crop x="0" y="0" width="0" height="-32"/>
+	
+	
+	
+	<seekbar type="thumb">
+		<start x="77" y="-15"/>
+		<end x="-285" y="-15"/>
+		<played>
+			<color rgb="ffffff"/>
+		</played>
+	</seekbar>
+	
+	<condition name="paused">
+		<color x="21" y="-15" rgb="ffffff"/>
+	</condition>
+	
+	<condition name="logged_in">
+		<not>
+			<javascript script="(document.evaluate( &quot;//div[@id=&apos;header_userpanel&apos;]/span[a=&apos;Log In&apos;]/a/text()&quot;, document, null, XPathResult.ANY_TYPE, null)).toString().matches(&quot;Log In&quot;)" matches="Log In"/>
+		</not>
+	</condition>
+	
+	<condition name="premium_account">
+		<javascript script="(document.evaluate( &quot;//div[@id=&apos;showmedia_video&apos;]/div[@class=&apos;showmedia-btns clearfix&apos;]/span[@class=&apos;showmedia-tired-of-ads&apos;]/text()&quot;, document, null, XPathResult.ANY_TYPE, null)).toString().matches(&quot;Tired of advertisements&quot;)" matches="Tired of advertisements"/>
+	</condition>
+	
+	<condition name="bar_present">
+		<and>
+			<color x="36" y="-28" rgb="333333"/>
+			<color x="-33" y="-28" rgb="333333"/>
+		</and>
+	</condition>
+	
+	<condition name="ad_bar_present">
+		<and>
+			<color x="2" y="15" rgb="333333"/>
+			<color x="-33" y="15" rgb="333333"/>
+		</and>
+	</condition>
+	
+	<condition name="bar_not_present">
+		<and>
+			<color x="36" y="-28" rgb="000000"/>
+			<color x="-33" y="-28" rgb="000000"/>
+		</and>
+	</condition>
+	
+	<state name="loading">
+		<event>
+			<condition>
+				<condition name="ad_bar_present"/>
+			</condition>
+			<action>
+				<goto state="playing_starting_ad"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<condition name="bar_present"/>
+			</condition>
+			<action>
+				<goto state="starting_video"/>
+			</action>
+		</event>
+	</state>
+	
+	<state name="playing_starting_ad">
+		<event>
+			<condition>
+				<and>
+					<not>
+						<condition name="ad_bar_present"/>
+					</not>
+					<condition name="bar_present"/>
+				</and>
+			</condition>
+			<action>
+				<goto state="starting_video"/>
+			</action>
+		</event>
+	</state>
+	
+	<state name="playing_ad">
+		<event>
+			<condition>
+				<and>
+					<not>
+						<condition name="ad_bar_present"/>
+					</not>
+					<condition name="bar_present"/>
+				</and>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+	</state>
+	
+	<state name="starting_video">
+		<event>
+			<condition>
+				<javascript script="" matches="Resume"/>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<javascript script="" matches="Restart"/>
+			</condition>
+			<action>
+				<type key="91"/>
+				<pause time="10"/>
+				<goto state="playing"/>
+			</action>
+		</event>
+	</state>
+	
+	<state name="playing">
+		<event>
+			<condition>
+				<command name="pause"/>
+			</condition>
+			<action>
+				<click x="21" y="-15"/>
+				<goto state="paused"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<not>
+					<condition name="bar_present"/>
+				</not>
+			</condition>
+			<action>
+				<goto state="playing_ad"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<or>
+					<command name="bigstep+"/>
+					<command name="smallstep+"/>
+					<command name="chapter+"/>
+				</or>
+			</condition>
+			<action>
+				<type key="39"/>
+				<pause time="10"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<or>
+					<command name="bigstep-"/>
+					<command name="smallstep-"/>
+					<command name="chapter-"/>
+				</or>
+			</condition>
+			<action>
+				<type key="37"/>
+				<pause time="10"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<and>
+					<color x="351" y="18" rgb="f7931e"/>
+					<color x="305" y="5" rgb="000000"/>
+				</and>
+			</condition>
+			<action>
+				<goto state="end"/>
+			</action>
+		</event>
+	</state>
+	
+	<state name="paused">
+		<event>
+			<condition>
+				<command name="play"/>
+			</condition>
+			<action>
+				<click x="21" y="-15"/>
+				<goto state="playing"/>
+			</action>
+		</event>
+	</state>
+</site>
+
+<javascript script="(document.getElementsById(&apos;header_userpanel&apos;).toString()).match('Log In')" matches="Log In"/>
+
+var diva=document.getElementsById('showmedia_video')
+var xpathResult = (document.evaluate( "//div[@id='showmedia_video']/div[@class='showmedia-btns clearfix']/span[@class='showmedia-tired-of-ads']/text()", document, null, XPathResult.ANY_TYPE, null)).toString().matches("Tired of advertisements");
+
+//div[@id='header_userpanel']/span[a='Log In']/a/text()
+
+<javascript script="(document.evaluate( &quot;//div[@id=&apos;header_userpanel&apos;]/span[a=&apos;Log In&apos;]/a/text()&quot;, document, null, XPathResult.ANY_TYPE, null)).toString().matches(&quot;Log In&quot;)" matches="Log In"/>
+
+<javascript script="(document.evaluate( &quot;//div[@id=&apos;showmedia_video&apos;]/div[@class=&apos;showmedia-btns clearfix&apos;]/span[@class=&apos;showmedia-tired-of-ads&apos;]/text()&quot;, document, null, XPathResult.ANY_TYPE, null)).toString().matches(&quot;Tired of advertisements&quot;)" matches="Tired of advertisements"/>
+(document.evaluate( "//div[@id='showmedia_video']/div[@class='showmedia-btns clearfix']/span[@class='showmedia-tired-of-ads']/text()", document, null, XPathResult.ANY_TYPE, null)).toString().matches("Tired of advertisements")
+
+
+<click x="21" y="-15"/>
+
+<click x="21" y="-15"/>
+<move x="1" y="-1"/>
+
+<event>
+	<condition>
+		<or>
+			<command name="bigstep+"/>
+			<command name="smallstep+"/>
+			<command name="chapter+"/>
+		</or>
+	</condition>
+	<action>
+		<type key="39"/>
+		<pause time="10"/>
+	</action>
+</event>
+<event>
+	<condition>
+		<or>
+			<command name="bigstep-"/>
+			<command name="smallstep-"/>
+			<command name="chapter-"/>
+		</or>
+	</condition>
+	<action>
+		<type key="37"/>
+		<pause time="10"/>
+	</action>
+</event>

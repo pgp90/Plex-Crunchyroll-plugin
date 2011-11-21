@@ -1,0 +1,36 @@
+[
+	{
+		"id": "username",
+		"type": "text",
+		"label": "Username",
+		"default": ""
+	},
+	{
+		"id": "password",
+		"type": "text",
+		"label": "Password",
+		"default": "",
+		"option": "hidden"
+	},
+	{
+		"id": "quality",
+		"type": "enum",
+		"label": "Quality",
+		"values": ["SD", "480P", "720P", "Highest Avalible"],
+		"default": "Highest Avalible"
+	},
+	{
+		"id": "thumb_quality",
+		"type": "enum",
+		"label": "Thumbnail Quality",
+		"values": ["Low", "Medium", "High"],
+		"default": "High"
+	},
+	{
+		"id": "start_point",
+		"type": "enum",
+		"label": "Resume or Restart",
+		"values": ["Resume", "Restart"],
+		"default": "Restart"
+	}
+]
