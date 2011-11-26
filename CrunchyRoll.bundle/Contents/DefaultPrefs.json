@@ -27,7 +27,7 @@
 		"default": "High"
 	},
 	{
-		"id": "start_point",
+		"id": "restart",
 		"type": "enum",
 		"label": "Resume or Restart",
 		"values": ["Resume", "Restart"],
