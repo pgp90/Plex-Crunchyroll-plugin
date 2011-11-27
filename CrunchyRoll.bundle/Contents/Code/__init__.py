@@ -73,13 +73,15 @@ DRAMA_GENRE_LIST = {
 	'Tournament':'tournament'
 }
 
-USING_BOXEE_FEEDS = False
+USING_BOXEE_FEEDS = True
 
-GET_EXTRA_INFO = True
+GET_EXTRA_INFO = False
 
 USE_LOGIN_AT_START = True
 
 USE_DURATION = True
+
+DOUBLE_CHECK_AVAIL_RES = True
 
 lastLoginCheckTime = time.time()
 
@@ -769,6 +771,12 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 		#episodeInfo['token'] = html.xpath("//stream_info/token")[0].text
 		episodeInfo['episodeNum'] = html.xpath("//media_metadata/episode_number")[0].text
 		#Log.Debug("episodeNum: %s\nduration: %s" % (episodeInfo['episodeNum'], episodeInfo['duration']))
+		ratio = float(episodeInfo['width'])/float(episodeInfo['height'])
+		if ratio < 1.5:
+			episodeInfo['wide'] = False
+		else:
+			episodeInfo['wide'] = True
+		
 	except:
 		episodeInfo = None
 	return episodeInfo
@@ -811,10 +819,13 @@ def getEpisodeListFromFeed(feed):
 					episodeNum = None
 			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 			availableResolutions = item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text.replace(" ", "").split(",")
+			Log.Debug("%s availRes: %s" % (title, item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text))
+			Log.Debug("%s availRes: %s" % (title, item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text.replace(" ", "").split(",")))
 			
 			if GET_EXTRA_INFO:
 				extraInfo = getEpisodeInfoFromPlayerXml(mediaId)
 				if extraInfo is not None:
+					wide = extraInfo['wide']
 					duration = int(float(extraInfo['duration'])*1000)
 					if episodeNum is None and extraInfo['episodeNum'] is not None:
 						episodeNum = int(extraInfo['episodeNum'])
@@ -822,6 +833,7 @@ def getEpisodeListFromFeed(feed):
 					duration = 1800000
 			else:
 				duration = 1800000
+				wide = True
 			
 			publisher = ""
 			season = ""
@@ -835,10 +847,11 @@ def getEpisodeListFromFeed(feed):
 				"episodeNum": episodeNum,
 				"thumb": thumb,
 				"availableResolutions": availableResolutions,
-				"duration": duration,
+				#"duration": duration,
 				"publisher": publisher,
 				"season": season,
-				"keywords": keywords
+				"keywords": keywords,
+				"wide": wide
 			}
 			episodeList.append(episode)
 	else:
@@ -864,7 +877,10 @@ def getEpisodeListFromFeed(feed):
 				episodeNum = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
 			except:
 				episodeNum = None
-			duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text)*1000
+			#try:
+			#	duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text)*1000
+			#except:
+			#	durration = None
 			publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
 			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 			keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
@@ -879,10 +895,11 @@ def getEpisodeListFromFeed(feed):
 				"episodeNum": episodeNum,
 				"thumb": thumb,
 				"availableResolutions": availableResolutions,
-				"duration": duration,
+				#"duration": duration,
 				"publisher": publisher,
 				"season": season,
-				"keywords": keywords
+				"keywords": keywords,
+				"wide": True
 			}
 			episodeList.append(episode)
 	sortedEpisodeList = sorted(episodeList, key=lambda k: k['episodeNum'])
@@ -890,14 +907,14 @@ def getEpisodeListFromFeed(feed):
 	return sortedEpisodeList
 
 
-def getVideoUrlForQuality(baseUrl, availableResolutions):
+def getVideoUrlForQuality(baseUrl, availableResolutions, isWide):
 	availRes = availableResolutions
 	if not USING_BOXEE_FEEDS:
 		if LoggedIn():
 			req = HTTP.Request(url=baseUrl, immediate=True, cacheTime=3600)
 			link = baseUrl.replace(BASE_URL, "")
-			r1a = '<a href="%s?p360=1" token="showmedia.360p" class="showmedia-res-btn" title="Standard Definition">SD</a>' % link
-			r1b = '<a href="%s?p360=1" token="showmedia.360p" class=" showmedia-res-btn-selected" title="Standard Definition">SD</a>' % link
+			#r1a = '<a href="%s?p360=1" token="showmedia.360p" class="showmedia-res-btn" title="Standard Definition">SD</a>' % link
+			#r1b = '<a href="%s?p360=1" token="showmedia.360p" class=" showmedia-res-btn-selected" title="Standard Definition">SD</a>' % link
 			r2a = '<a href="%s?p480=1" token="showmedia.480p" class="showmedia-res-btn" title="480P">480P</a>' % link
 			r2b = '<a href="%s?p480=1" token="showmedia.480p" class=" showmedia-res-btn-selected" title="480P">480P</a>' % link
 			r3a = '<a href="%s?p720=1" token="showmedia.720p" class="showmedia-res-btn" title="720P">720P</a>' % link
@@ -920,6 +937,8 @@ def getVideoUrlForQuality(baseUrl, availableResolutions):
 			resName = availResNames[len(availRes)-1]
 	
 	url = baseUrl+"?p"+VIDEO_QUALITY[resName]+"=1"
+	if isWide is True:
+		url = url+"&wide=1"
 	#Log.Debug("qualityUrl: %s" % url)
 	return url
 
@@ -1074,15 +1093,130 @@ def makeEpisodeItem(episode):
 		summary = summary+"\n"+episode['description']
 	else:
 		summary = episode['description']
+	#Log.Debug("wide: %s" % episode['wide'])
+	#episodeItem = WebVideoItem(
+	#            getVideoUrlForQuality(episode['link'],episode['availableResolutions'], episode['wide']),
+	#            title = episode['title'],
+	#            subtitle = episode['season'],
+	#            summary = summary,
+	#            thumb = episode['thumb']#,
+	#			#duration = episode['duration']
+	#)
+	episodeItem = Function(
+		PopupDirectoryItem(
+			playMenu,
+			title = episode['title'],
+			subtitle = episode['season'],
+			summary = summary,
+			thumb = episode['thumb']#,
+		),
+		episode=episode
+	)
+	return episodeItem
+
+
+def makeVideoItem(episode):
+	videoInfo = getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
+	
+	videoUrl = getUrlForVideo(videoInfo)
 	episodeItem = WebVideoItem(
-	            getVideoUrlForQuality(episode['link'],episode['availableResolutions']),
+	            getVideoUrlForQuality(episode['link'],episode['availableResolutions'], episode['wide']),
 	            title = episode['title'],
 	            subtitle = episode['season'],
 	            summary = summary,
 	            thumb = episode['thumb'],
-				duration = episode['duration']
+				duration = videoInfo['duration']
 	)
 	return episodeItem
+
+
+def getVideoInfo(baseUrl, mediaId, availRes):
+	#try:
+	if LoginNotBlank():
+		loggedin = LoggedIn()
+		if not loggedin:
+			Login()
+	url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
+	html = HTML.ElementFromURL(url)
+	#debugFeedItem(html)
+	#debugFeedItem(html.xpath("//stream_info/metadata")[0])
+	episodeInfo = {}
+	episodeInfo['baseUrl'] = baseUrl
+	episodeInfo['availRes'] = availRes
+	episodeInfo['small'] = False
+	episodeInfo['initialVolume'] = int(html.xpath("//initialvolume")[0].text)
+	episodeInfo['width'] = html.xpath("//stream_info/metadata/width")[0].text
+	episodeInfo['height'] = html.xpath("//stream_info/metadata/height")[0].text
+	try:
+		Log.Debug("duration text: %s" % html.xpath("//stream_info/metadata/duration")[0].text)
+		dur = int(float(html.xpath("//stream_info/metadata/duration")[0].text)*1000)
+		Log.Debug("dur: %s" % dur)
+		episodeInfo['duration'] = dur
+	except:
+		episodeInfo['duration'] = 0
+	episodeInfo['episodeNum'] = html.xpath("//media_metadata/episode_number")[0].text
+	ratio = float(episodeInfo['width'])/float(episodeInfo['height'])
+	if ratio < 1.5:
+		episodeInfo['wide'] = False
+	else:
+		episodeInfo['wide'] = True
+	#except:
+	#	episodeInfo = None
+	return episodeInfo
+
+
+def getVideoUrl(videoInfo, quality):
+	resNames = {'12':'SD', '20':'480P', '21':'720P'}
+	url = videoInfo['baseUrl']+"?p"+VIDEO_QUALITY[resNames[quality]]+"=1"
+	if videoInfo['small'] is True:
+		url = url+"&small=1"
+	if videoInfo['wide'] is True:
+		url = url+"&wide=1"
+	return url
+
+
+def getAvailResFromPage(url, availableRes):
+	availRes = ['12']
+	if LoggedIn():
+		req = HTTP.Request(url=url, immediate=True, cacheTime=3600)
+		link = url.replace(BASE_URL, "")
+		r2a = '<a href="%s?p480=1" token="showmedia.480p" class="showmedia-res-btn" title="480P">480P</a>' % link
+		r2b = '<a href="%s?p480=1" token="showmedia.480p" class=" showmedia-res-btn-selected" title="480P">480P</a>' % link
+		r3a = '<a href="%s?p720=1" token="showmedia.720p" class="showmedia-res-btn" title="720P">720P</a>' % link
+		r3b = '<a href="%s?p720=1" token="showmedia.720p" class=" showmedia-res-btn-selected" title="720P">720P</a>' % link
+		if r2a in req.content or r2b in req.content:
+			availRes.append("20")
+		if r3a in req.content or r3b in req.content:
+			availRes.append("21")
+	for a in availableRes:
+		availRes.append(a)
+	availRes.sort()
+	last = availRes[-1]
+	for i in range(len(availRes)-2, -1, -1):
+		if last == availRes[i]:
+			del availRes[i]
+		else:
+			last = availRes[i]
+	Log.Debug("checked res: %s" % availRes)
+	return availRes
+
+
+def playMenu(sender, episode):
+	resNames = {"12":'SD', "20":'480P', "21":'720P'}
+	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
+	availRes = episode['availableResolutions']
+	if DOUBLE_CHECK_AVAIL_RES:
+		availRes = getAvailResFromPage(episode['link'], availRes)
+	videoInfo = getVideoInfo(episode['link'], episode['mediaId'], availRes)
+	for q in availRes:
+		videoUrl = getVideoUrl(videoInfo, q)
+		episodeItem = WebVideoItem(
+		            getVideoUrlForQuality(episode['link'], availRes, videoInfo['wide']),
+		            title = "%s: %s" %(episode['title'],resNames[q]),
+					duration = videoInfo['duration']
+		)
+		dir.Append(episodeItem)
+	return dir
 
 
 def listElt(url):
