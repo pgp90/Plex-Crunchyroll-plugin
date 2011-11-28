@@ -176,70 +176,6 @@ def TopMenu():
 	
 	return dir
 
-"""
-def getRtmpStreamInfo(url):
-	data = HTML.ElementFromURL(url)
-	stream_info = data.xpath("//stream_info")
-	if stream_info:
-		try:
-			host = stream_info.xpath("./host")[0].text
-			clipFile = stream_info.xpath("./file")[0].text
-			token = stream_info.xpath("./token")[0].text
-			page_url
-			swf_url = "http://static.lln.crunchyroll.com/flash/"+returnPlayer+"/"+player_url
-			try:
-				app = host.split('.net/')
-				stream['app'] = app[1]
-				#print "CRUNCHYROLL: --> App - " + stream['app']
-			except:
-				pass
-		
-			useSubs = False
-			mediaid = vid_id
-			subtitles = data.xpath("//subtitles")[0]
-			#print "CRUNCHYROLL: --> Attempting to find subtitles..."
-			if(subtitles):
-				#print "CRUNCHYROLL: --> Found subtitles.  Continuing..."
-				#impliment the decoder
-				formattedSubs = crunchyDec().returnSubs(xmlSource)
-				#find the plex equivalant to the .translatePath()
-				subfile = open(xbmc.translatePath('special://temp/crunchy_'+mediaid+'.ass'), 'w')
-				subfile.write(formattedSubs.encode('utf-8'))
-				subfile.close()
-				useSubs = True
-			else:
-				#print "CRUNCHYROLL: --> No subtitles available!"
-				mediaid = ""
-		
-			self.playvideo(stream, mediaid, useSubs)
-		except:
-			if stream_info.find('upsell'):
-				if stream_info.upsell.string == '1':
-					ex = 'XBMC.Notification("Video restricted:","Video not available to your user account.", 3000)'
-					xbmc.executebuiltin(ex)
-					print "CRUNCHYROLL: --> Selected video quality is not available to your user account."
-			elif stream_info.find('error'):
-				if stream_info.error.code.string == '4':
-					ex = 'XBMC.Notification("Mature Content:","Please login to view this video.", 3000)'
-					xbmc.executebuiltin(ex)
-					print "CRUNCHYROLL: --> This video is marked as Mature Content.  Please login to view it."
-	else:
-		print "Playback Failed!"
-
-
-def playvideo(self, stream, mediaid, useSubs):
-	rtmp_url = stream['url']+stream['file'].replace('&amp;','&') + " swfurl=" +stream['swf_url'] + " swfvfy=1 token=" +stream['token']+ " playpath=" +stream['file'].replace('&amp;','&')+ " pageurl=" +stream['page_url'] 
-	item = xbmcgui.ListItem(stream['episode_display'])
-	item.setProperty('IsPlayable', 'true')
-	
-	if(useSubs == True):
-		print "CRUNCHYROLL: --> Playing video and setting subtitles to special://temp/crunchy_"+mediaid+".ass"
-		xbmc.Player().play(rtmp_url)
-		xbmc.Player().setSubtitles(xbmc.translatePath('special://temp/crunchy_'+mediaid+'.ass'))
-	else:
-		xbmc.Player().play(rtmp_url, item)
-
-"""
 
 def LoginAtStart():
 	global GlobalWasLoggedIn
@@ -819,8 +755,8 @@ def getEpisodeListFromFeed(feed):
 					episodeNum = None
 			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 			availableResolutions = item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text.replace(" ", "").split(",")
-			Log.Debug("%s availRes: %s" % (title, item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text))
-			Log.Debug("%s availRes: %s" % (title, item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text.replace(" ", "").split(",")))
+			#Log.Debug("%s availRes: %s" % (title, item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text))
+			#Log.Debug("%s availRes: %s" % (title, item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text.replace(" ", "").split(",")))
 			
 			if GET_EXTRA_INFO:
 				extraInfo = getEpisodeInfoFromPlayerXml(mediaId)
@@ -1148,9 +1084,9 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 	episodeInfo['width'] = html.xpath("//stream_info/metadata/width")[0].text
 	episodeInfo['height'] = html.xpath("//stream_info/metadata/height")[0].text
 	try:
-		Log.Debug("duration text: %s" % html.xpath("//stream_info/metadata/duration")[0].text)
+		#Log.Debug("duration text: %s" % html.xpath("//stream_info/metadata/duration")[0].text)
 		dur = int(float(html.xpath("//stream_info/metadata/duration")[0].text)*1000)
-		Log.Debug("dur: %s" % dur)
+		#Log.Debug("dur: %s" % dur)
 		episodeInfo['duration'] = dur
 	except:
 		episodeInfo['duration'] = 0
@@ -1197,8 +1133,24 @@ def getAvailResFromPage(url, availableRes):
 			del availRes[i]
 		else:
 			last = availRes[i]
-	Log.Debug("checked res: %s" % availRes)
+	#Log.Debug("checked res: %s" % availRes)
 	return availRes
+
+
+def getPrefRes(availRes):
+	resNames = {"12":'SD', "20":'480P', "21":'720P'}
+	availResNames = []
+	for resN in availRes:
+		availResNames.append(resNames[resN])
+	if Prefs['quality'] == "Highest Avalible":
+		resName = availResNames[len(availRes)-1]
+	else:
+		if Prefs['quality'] in availResNames:
+			resName = Prefs['quality']
+		else:
+			resName = availResNames[len(availRes)-1]
+	invResNames = {'SD':"12", '480P':"20", '720P':"21"}
+	return invResNames[resName]
 
 
 def playMenu(sender, episode):
@@ -1208,15 +1160,45 @@ def playMenu(sender, episode):
 	if DOUBLE_CHECK_AVAIL_RES:
 		availRes = getAvailResFromPage(episode['link'], availRes)
 	videoInfo = getVideoInfo(episode['link'], episode['mediaId'], availRes)
-	for q in availRes:
-		videoUrl = getVideoUrl(videoInfo, q)
-		episodeItem = WebVideoItem(
-		            getVideoUrlForQuality(episode['link'], availRes, videoInfo['wide']),
-		            title = "%s: %s" %(episode['title'],resNames[q]),
-					duration = videoInfo['duration']
+	vi = {}
+	vi['title'] = episode['title']
+	vi['duration'] = videoInfo['duration']
+	if Prefs['quality'] is "Ask":
+		for q in availRes:
+			videoUrl = getVideoUrl(videoInfo, q)
+			vi['url'] = videoUrl
+			episodeItem = Function(
+				WebVideoItem(
+					PlayVideo,
+					title=resNames[q]
+				),
+				videoInfo=vi
+			)
+			dir.Append(episodeItem)
+	else:
+		prefRes = getPrefRes(availRes)
+		videoUrl = getVideoUrl(videoInfo, prefRes)
+		vi['url'] = videoUrl
+		episodeItem = Function(
+			WebVideoItem(
+				PlayVideo,
+				title="Play"
+			),
+			videoInfo=vi
 		)
 		dir.Append(episodeItem)
+		
 	return dir
+
+
+def PlayVideo(sender, videoInfo):
+	return Redirect(
+		WebVideoItem(
+			videoInfo['url'],
+    		title = videoInfo['title'],
+			duration = videoInfo['duration']
+    	)
+	)
 
 
 def listElt(url):
@@ -1230,51 +1212,6 @@ def listElt(url):
 				for d in list(c):
 					Log.Debug("            %s" % d.tag)
 
-
-"""
-def makeEpisodeItem(episode):
-	Log.Debug("mEI url: %s" % episode['guid'])
-	#infoLabel = msToRuntime(episode['duration'])
-	loggedin = LoggedIn2()
-	Log.Debug("BuildPlayerUrl - loggedIn: %s" % loggedin)
-	#if not loggedin:
-	#	Login()
-	
-	dirItem = WebVideoItem(
-	            episode['guid'],
-	            title = episode['title'],
-	            subtitle = '',
-	            summary = episode['description'],
-	            thumb = episode['thumb'],
-				duration = episode['duration']
-	)
-	#dirItem = Function"("
-	#	DirectoryItem"("
-	#		BuildPlayerUrl,
-	#		episode['title'],
-	#		summary=episode['description'],
-	#		subtitle='',
-	#		thumb=episode['thumb'],
-	#		art=episode['thumb']#,
-	#		#infoLabel=infoLabel
-	#	),url="%s" % episode['guid'],available_resolutions="%s" % episode['available_resolutions']
-	#)
-	return dirItem
-
-
-def BuildPlayerUrl(sender,url='',available_resolutions='12,20,21'):
-	loggedin = LoggedIn()
-	Log.Debug("BuildPlayerUrl - loggedIn: %s" % loggedin)
-	if not loggedin:
-		Login()
-	
-	Log.Debug("BuildPlayerUrl: %s" % url)
-	wvi = WebVideoItem(url)
-	Log.Debug("wvi: %s" % wvi)
-	#return Redirect(wvi)
-	return wvi
-
-"""
 
 def msToRuntime(ms):
 	
