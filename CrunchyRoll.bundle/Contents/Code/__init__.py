@@ -2,6 +2,8 @@ import string
 import time
 import re
 
+
+
 BASE_URL                     = "http://www.crunchyroll.com"
 
 CRUNCHYROLL_PLUGIN_PREFIX    = "/video/CrunchyRoll"
@@ -21,7 +23,7 @@ VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720"}
 
 GlobalCrunchyrollSession  = None
 
-LAST_PLAYER_VERSION = "20111118183226.fb103f9787f179cd0f27be64da5c23f2"
+LAST_PLAYER_VERSION = "20111130163346.fb103f9787f179cd0f27be64da5c23f2"
 
 ANIME_GENRE_LIST = {
 	'Action':'action',
@@ -81,7 +83,68 @@ USE_LOGIN_AT_START = True
 
 USE_DURATION = True
 
+JUST_USE_WIDE = False
+
 DOUBLE_CHECK_AVAIL_RES = True
+
+def LoginAtStart():
+	global GlobalWasLoggedIn
+	if LoginNotBlank():
+		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
+		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
+		req = HTTP.Request(url="https://www.crunchyroll.com/acct",cacheTime=10,immediate=True)
+		if "Profile Information" in req.content:
+			GlobalWasLoggedIn = True
+		else:
+			GlobalWasLoggedIn = False
+		#Log.Debug("is loggedin? %s" % GlobalWasLoggedIn)
+		return GlobalWasLoggedIn
+
+
+def LoggedIn():
+	global GlobalWasLoggedIn
+	global lastLoginCheckTime
+	if USE_LOGIN_AT_START:
+		return GlobalWasLoggedIn
+	else:
+		if LoginNotBlank():
+			if lastLoginCheckTime is not None and (time.time() - lastLoginCheckTime) > 60*60*6:
+				LoggedIn2()
+				lastLoginCheckTime = time.time()
+		else:
+			GlobalWasLoggedIn = False
+		return GlobalWasLoggedIn
+
+
+def LoggedIn2():
+	global GlobalWasLoggedIn
+	req = HTTP.Request(url="https://www.crunchyroll.com/acct",cacheTime=10,immediate=True)
+	if "Profile Information" in req.content:
+		GlobalWasLoggedIn = True
+	else:
+		GlobalWasLoggedIn = False
+		lastLoginCheckTime = time.time()
+	return GlobalWasLoggedIn
+
+
+def Login():
+	if Prefs['username'] != '' and Prefs['password'] != '':
+		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
+		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
+
+def Logout():
+	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
+	GlobalWasLoggedIn = False
+
+
+def LoginNotBlank():
+	r = False
+	if Prefs['username'] is not None and Prefs['password'] is not None:
+		r = True
+	return r
+
+
+import scrapper
 
 lastLoginCheckTime = time.time()
 
@@ -99,6 +162,8 @@ def Start():
 	#MediaContainer.viewGroup = "List"
 	#DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
 	LoginAtStart()
+	if 'episodes' not in Dict:
+		Dict['episodes'] = {}
 
 
 def CreatePrefs():
@@ -108,12 +173,6 @@ def CreatePrefs():
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
 
-
-def LoginNotBlank():
-	r = False
-	if Prefs['username'] is not None and Prefs['password'] is not None:
-		r = True
-	return r
 
 
 def getVideoQuality():
@@ -170,61 +229,12 @@ def TopMenu():
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	dir.Append(Function(DirectoryItem(Menu,"Browse Anime", thumb=R(ANIME_ICON)), type="Anime"))
 	dir.Append(Function(DirectoryItem(Menu,"Browse Drama", thumb=R(DRAMA_ICON)), type="Drama"))
-	#dir.Append(Function(DirectoryItem(Menu,"Browse Queue", thumb=R(QUEUE_ICON)), type="Queue"))
+	dir.Append(Function(DirectoryItem(QueueMenu,"Browse Queue", thumb=R(QUEUE_ICON))))
 	dir.Append(PrefsItem(L('Preferences'), thumb=R(PREFS_ICON)))
 	#dir.nocache = 1
 	
 	return dir
 
-
-def LoginAtStart():
-	global GlobalWasLoggedIn
-	if LoginNotBlank():
-		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
-		req = HTTP.Request(url="https://www.crunchyroll.com/acct",cacheTime=10,immediate=True)
-		if "Profile Information" in req.content:
-			GlobalWasLoggedIn = True
-		else:
-			GlobalWasLoggedIn = False
-		#Log.Debug("is loggedin? %s" % GlobalWasLoggedIn)
-		return GlobalWasLoggedIn
-
-
-def LoggedIn():
-	global GlobalWasLoggedIn
-	global lastLoginCheckTime
-	if USE_LOGIN_AT_START:
-		return GlobalWasLoggedIn
-	else:
-		if LoginNotBlank():
-			if lastLoginCheckTime is not None and (time.time() - lastLoginCheckTime) > 60*60*6:
-				LoggedIn2()
-				lastLoginCheckTime = time.time()
-		else:
-			GlobalWasLoggedIn = False
-		return GlobalWasLoggedIn
-
-
-def LoggedIn2():
-	global GlobalWasLoggedIn
-	req = HTTP.Request(url="https://www.crunchyroll.com/acct",cacheTime=10,immediate=True)
-	if "Profile Information" in req.content:
-		GlobalWasLoggedIn = True
-	else:
-		GlobalWasLoggedIn = False
-		lastLoginCheckTime = time.time()
-	return GlobalWasLoggedIn
-
-
-def Login():
-	if Prefs['username'] != '' and Prefs['password'] != '':
-		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
-
-def Logout():
-	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
-	GlobalWasLoggedIn = False
 
 
 def returnPlayer():
@@ -262,276 +272,6 @@ def Menu(sender,type=None):
 	return dir
 
 
-def getShowsOnPage(url):
-	listPage = HTML.ElementFromURL(url)
-	items = listPage.xpath("//li[@class='clearfix'and@itemtype='http://schema.org/TVSeries']")
-	showList = []
-	for item in items:
-		title = item.xpath(".//strong[@itemprop='name']")[0].text
-		thumb = item.xpath(".//img[@itemprop='photo']")[0].get('src')
-		href = item.xpath(".//a")[0].get('href')
-		if href.startswith("http") == False:
-		            href = BASE_URL + href
-		
-		rating = int(float(item.xpath(".//span[@class='ratings-widget']/span")[0].get('content'))*2)
-		
-		subData = item.xpath(".//noscript")[0]
-		
-		description = subData.xpath(".//p[1]")[0].text
-		art = subData.xpath(".//img")[0].get('src')
-		
-		#episodes = ''
-		#try:
-		#	episodes = subData.xpath("./p[strong=='Episodes:']")[0].text
-		#except:
-		#	pass
-		
-		#genres = ''
-		#try:
-		#	genres = subData.xpath("./p[strong=='Tags:']")[0].text
-		#except:
-		#	pass
-		
-		#year = ''
-		#try:
-		#	year = subData.xpath("./p[strong=='Year:']")[0].text
-		#except:
-		#	pass
-		
-		show = {
-			"title": title,
-			"thumb": thumb,
-			"art": art,
-			"href": href,
-			"description": description,
-			#"duration": 25*60000,
-			#"episodes": episodes,
-			#"genres": genres,
-			#"year": year,
-			"rating": rating
-		}
-		showList.append(show)
-		
-	return showList
-
-
-def getShowsOnPageAlpha(url, startsWith=None):
-	if startsWith is None:
-		showList = getShowsOnPage(url);
-	else:
-		listPage = HTML.ElementFromURL(url)
-		items = listPage.xpath("//li[@class='clearfix'and@itemtype='http://schema.org/TVSeries']")
-		#Log.Debug("number of items on the page: %d" % len(items))
-		#Log.Debug(listPage.xpath("//li[@class='clearfix'and@itemtype='http://schema.org/TVSeries']//strong[@itemprop='name']//text()"))
-		showList = []
-		for item in items:
-			title = item.xpath(".//strong[@itemprop='name']")[0].text.strip()
-			if title.startswith(startsWith):
-				thumb = item.xpath(".//img[@itemprop='photo']")[0].get('src')
-				href = item.xpath(".//a")[0].get('href')
-				if href.startswith("http") == False:
-				            href = BASE_URL + href
-				
-				rating = int(float(item.xpath(".//span[@class='ratings-widget']/span")[0].get('content'))*2)
-				
-				subData = item.xpath(".//noscript")[0]
-				
-				description = subData.xpath(".//p[1]")[0].text
-				art = subData.xpath(".//img")[0].get('src')
-				
-				#episodes = ''
-				#try:
-				#	episodes = subData.xpath("./p[strong=='Episodes:']")[0].text
-				#except:
-				#	pass
-				
-				#genres = ''
-				#try:
-				#	genres = subData.xpath("./p[strong=='Tags:']")[0].text
-				#except:
-				#	pass
-				
-				#year = ''
-				#try:
-				#	year = subData.xpath("./p[strong=='Year:']")[0].text
-				#except:
-				#	pass
-				
-				show = {
-					"title": title,
-					"thumb": thumb,
-					"art": art,
-					"href": href,
-					"description": description,
-					#"duration": 25*60000,
-					#"episodes": episodes,
-					#"genres": genres,
-					#"year": year,
-					"rating": rating
-				}
-				showList.append(show)
-				
-	return showList
-
-
-def getShowInfo(url):
-	showPage = HTML.ElementFromURL(url)
-	
-	description = showPage.xpath("//div[@class='series-section clearfix']/span[@itemprop='description']")[0].text
-	
-	detailedInfo = showPage.xpath("//ul[@class='series-detailed']")
-	
-	genres = detailedInfo.xpath("./li[@class='series-tags']/a").text
-	episodes = detailedInfo.xpath("./li[strong=='Episodes:']/string()")[0]
-	publisher = detailedInfo.xpath("./li[strong=='Publisher:']/string()")[0]
-	year = detailedInfo.xpath("./li[strong=='Year:']/string()")[0]
-	
-	detailedDescription = ""
-	detailedDescriptionParts = showPage.xpath("//div[@class='series-section clearfix'][5]")
-	for part in detailedDescriptionParts:
-		detailedDescription = ("%s\n\n%s" % (detailedDescription, part))
-	
-	showInfo = {
-		"description": description,
-		"genres": genres,
-		"episodes": episodes,
-		"publisher": publisher,
-		"year": year,
-		"detailedDescription": detailedDescription
-	}
-	return showInfo
-
-
-def genEpRssUrlFromName(seriesName):
-	url = "http://www.crunchyroll.com/"
-	name = seriesName.lower().replace(" ", "-")
-	toRemove = ["!", "'", ",", ".", "?", "&", "@", "#", "$", "%", "^", "*", "(", ")"]
-	for char in toRemove:
-		name = name.replace(char, "")
-	url = url + name + ".rss"
-	return url
-
-
-def genEpRssUrlFromUrl(feedurl):
-	url = "http://www.crunchyroll.com/"
-	id = feedurl.split("showseries/")[1]
-	url = "http://www.crunchyroll.com/syndication/feed?type=episodes&group_id=%s" % id
-	return url
-
-
-def getEpisodesList(url):
-	showFeed = HTML.ElementFromURL(url)
-	art = showFeed.xpath("//channel/image/url")[0].text
-	items = showFeed.xpath("//channel/item")
-	episodes = []
-	#for num in range(1, len(items) + 1):
-	#	episodes.append(num)
-	series_name = showFeed.xpath("//channel/title")[0].text
-	if " Episodes" in series_name:
-		series_name = series_name.replace(" Episodes", "")
-	for item in items:
-		#subs = []
-		#for sub in list(item):
-		#	subs.append(sub.tag)
-		#	if sub.tag=="link" or sub.tag=="guid":
-		#		Log.Debug("sub: %s" % sub)
-		#		Log.Debug("sub.text: %s" % sub.xpath("./string"))
-		#		Log.Debug("sub.tag: %s" % sub.tag)
-		#		for subb in list(sub):
-		#			Log.Debug("subb.text: %s" % subb.text)
-		#			Log.Debug("subb.tag: %s" % subb.tag)
-		#Log.Debug(subs)
-		try:
-			duration = int(item.xpath("./duration")[0].text)*1000
-			title = item.xpath("./title")[0].text
-			href = item.xpath("./link/string")#[0].text
-			guid = item.xpath("./guid")[0].text
-			description = item.xpath("./description")[0].text
-			if "/&gt;&lt;br /&gt;" in description:
-				description = description.split("/&gt;&lt;br /&gt;")[1]
-			elif "><br />" in description:
-				description = description.split("><br />")[1]
-			pubDate = item.xpath("./pubdate")[0].text
-			episodeNumber = int(item.xpath("./episodenumber")[0].text)
-			publisher = item.xpath("./publisher")[0].text
-			seasonNumber = item.xpath("./season")[0].text
-			contentRating = item.xpath("./rating")[0].text
-			thumb = item.xpath("./thumbnail")[0].get('url')
-			keywords = item.xpath("./keywords")[0].text
-			href = ("http://www.crunchyroll.com/%s/episode-%s-%s" % (series_name, episodeNumber, guid.split("media-")[1]))
-			
-			#Log.Debug("episode number: %s" % episodeNumber)
-			#Log.Debug("getEpisodesList href: %s" % href)
-			
-			episode = {
-				"title": title,
-				"series_name": series_name,
-				"href": href,
-				"guid": guid,
-				"description": description,
-				"pubDate": pubDate,
-				"episodeNumber": episodeNumber,
-				"duration": duration,
-				"publisher": publisher,
-				"seasonNumber": seasonNumber,
-				"contentRating": contentRating,
-				"thumb": thumb,
-				"keywords": keywords,
-				"art": art
-			}
-			
-			#index = episodes.index(int(episodeNumber))
-			#episodes.remove(index)
-			#episodes.insert(index, episode)
-			episodes.append(episode)
-		except:
-			pass
-	
-	newlist = sorted(episodes, key=lambda k: k['episodeNumber'])
-	
-	#tmp = []
-	#for ep in newlist:
-	#	tmp.append(ep['episodeNumber'])
-	#Log.Debug(tmp)
-	
-	return newlist
-
-
-def makeWebShowItem(show):
-	webShowItem = Function(
-		DirectoryItem(
-			ShowMenu,
-			show['title'],
-			summary=show['description'],
-			thumb=show['thumb'],
-			art=show['art'],
-			#duration=show['duration'],
-			rating=show['rating'],
-		),
-		show['href']
-	)
-	return webShowItem
-
-
-def makeWebVideoItem(episode):
-	#Log.Debug("mWVI url: %s" % episode['guid'])
-	infoLabel = msToRuntime(episode['duration'])
-	dirItem = Function(
-		DirectoryItem(
-			BuildPlayerUrl,
-			episode['title'],
-			summary=episode['description'],
-			subtitle='',
-			duration=episode['duration'],
-			thumb=episode['thumb'],
-			art=episode['art'],
-			#rating=episode['rating'],
-			infoLabel=infoLabel
-		),url="%s" % episode['guid']
-	)
-	return dirItem
-
-
 def AlphaListMenu(sender,type=None,query=None):
 	if query is not None:
 		if query=="#":
@@ -542,9 +282,9 @@ def AlphaListMenu(sender,type=None,query=None):
 			queryCharacters = (query.lower(), query.upper())
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
 		if type=="Anime":
-			seriesList = getSeriesListFromFeed("genre_anime_all")
+			seriesList = scrapper.getSeriesListFromFeed("genre_anime_all")
 		else:
-			seriesList = getSeriesListFromFeed("drama")
+			seriesList = scrapper.getSeriesListFromFeed("drama")
 		for series in seriesList:
 			if series['title'].startswith(queryCharacters):
 				dir.Append(makeSeriesItem(series))		
@@ -559,7 +299,7 @@ def AlphaListMenu(sender,type=None,query=None):
 def PopularListMenu(sender,type=None):
 	listRoot = BASE_URL + "/" + type.lower()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
-	seriesList = getSeriesListFromFeed("anime_popular")
+	seriesList = scrapper.getSeriesListFromFeed("anime_popular")
 	for series in seriesList:
 		dir.Append(makeSeriesItem(series))
 	return dir
@@ -574,7 +314,7 @@ def GenreListMenu(sender,type=None,query=None):
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
 		queryStr = genreList[query].replace('_', '%20')
 		feed = "anime_withtag/" + queryStr
-		seriesList = getSeriesListFromFeed(feed)
+		seriesList = scrapper.getSeriesListFromFeed(feed)
 		for series in seriesList:
 			dir.Append(makeSeriesItem(series))
 	else:
@@ -596,227 +336,52 @@ def ShowMenu(sender,url=None):
 		if not loggedin:
 			Login()
 	
-	episodes = getEpisodeListFromFeed(url)
+	episodes = scrapper.getEpisodeListFromFeed(url)
 	if episodes['useSeasons'] is True:
 		seasonNums = episodes['seasons'].keys()
 		Log.Debug("season nums: %s" % seasonNums)
 		for seasonNum in seasonNums:
 			seasonName = "Season %s" % seasonNum
 			season = {}
-			season['episodes'] = episodes['seasons'][seasonNum]
+			#season['episodes'] = episodes['seasons'][seasonNum]
+			season['url'] = url
 			season['title'] = seasonName
 			season['description'] = ""
+			season['seasonnum'] = seasonNum
 			#season['thumb'] = 
 			dir.Append(makeSeasonItem(season))
 	else:
 		for episode in episodes['episodeList']:
 			dir.Append(makeEpisodeItem(episode))
+	#Log.Debug("testing: %s" % dir.parentIndex)
 	return dir
 
 
-def SeasonMenu(sender,season):
+def SeasonMenu(sender,url=None,season=None):
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
 	
 	if LoginNotBlank():
 		loggedin = LoggedIn()
 		if not loggedin:
 			Login()
-			
-	for episode in season:
+	epList = scrapper.getSeasonEpisodeListFromFeed(url, season)
+	for episode in epList:
 		dir.Append(makeEpisodeItem(episode))
 	return dir
 
 
-def getSeriesListFromFeed(feed):
-	feedURL = FEED_BASE_URL+feed
-	feedHtml = HTML.ElementFromURL(feedURL)
-	seriesList = []
-	items = feedHtml.xpath("//item")
-	for item in items:
-		title = item.xpath("./title")[0].text
-		mediaId = int(item.xpath("./guid")[0].text.split(".com/")[1])
-		description = item.xpath("./description")[0].text
-		thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
-		
-		series = {
-			"title": title,
-			"mediaId": mediaId,
-			"description": description,
-			"thumb": thumb
-		}
-		seriesList.append(series)
-	sortedSeriesList = sorted(seriesList, key=lambda k: k['title'])
-	return sortedSeriesList
-
-
-def getEpisodeInfoFromPlayerXml(mediaId):
-	try:
-		if LoginNotBlank():
-			loggedin = LoggedIn()
-			#Log.Debug("BuildPlayerUrl - loggedIn: %s" % loggedin)
-			if not loggedin:
-				Login()
-		
-		url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
-		#Log.Debug("getEpisodeInfoFromPlayerXml url: %s" % url)
-		html = HTML.ElementFromURL(url)
-		#debugFeedItem(html)
-		episodeInfo = {}
-		#episodeInfo['videoFormat'] = html.xpath("//videoformat")[0].text
-		#episodeInfo['backgroundUrl'] = html.xpath("//backgroundurl")[0].text
-		episodeInfo['initialVolume'] = int(html.xpath("//initialvolume")[0].text)
-		#episodeInfo['initialMute'] = html.xpath("//initialmute")[0].text
-		#episodeInfo['host'] = html.xpath("//stream_info//host")[0].text
-		#episodeInfo['file'] = html.xpath("//stream_info/file")[0].text
-		#episodeInfo['mediaType'] = html.xpath("//stream_info/media_type")[0].text
-		#episodeInfo['videoEncodeId'] = html.xpath("//stream_info/video_encode_id")[0].text
-		episodeInfo['width'] = html.xpath("//stream_info/metadata/width")[0].text
-		episodeInfo['height'] = html.xpath("//stream_info/metadata/height")[0].text
-		episodeInfo['duration'] = html.xpath("//stream_info/metadata/duration")[0].text
-		#episodeInfo['token'] = html.xpath("//stream_info/token")[0].text
-		episodeInfo['episodeNum'] = html.xpath("//media_metadata/episode_number")[0].text
-		#Log.Debug("episodeNum: %s\nduration: %s" % (episodeInfo['episodeNum'], episodeInfo['duration']))
-		ratio = float(episodeInfo['width'])/float(episodeInfo['height'])
-		if ratio < 1.5:
-			episodeInfo['wide'] = False
-		else:
-			episodeInfo['wide'] = True
-		
-	except:
-		episodeInfo = None
-	return episodeInfo
-
-
-def getEpisodeListFromFeed(feed):
-	episodeList = []
-	if USING_BOXEE_FEEDS is True:
-		if LoginNotBlank():
-			loggedin = LoggedIn()
-			if not loggedin:
-				Login()
+def QueueMenu(sender):
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
 	
-		feedURL = FEED_BASE_URL+feed
-		feedHtml = XML.ElementFromURL(feedURL)
-		items = feedHtml.xpath("//item")
-		for item in items:
-			PLUGIN_NAMESPACE   = {'boxee':'http://boxee.tv/rss', 'media':"http://search.yahoo.com/mrss/"}
-			title = item.xpath("./title")[0].text
-			link = item.xpath("./guid")[0].text
-			mediaIdTmp = item.xpath("./guid")[0].text.split("-")
-			mediaId = int(mediaIdTmp[len(mediaIdTmp)-1])
-			description = item.xpath("./description")[0].text
-			seriesTitle = item.xpath("./boxee:property[@name='custom:seriesname']", namespaces=PLUGIN_NAMESPACE)[0].text
-			try:
-				episodeNum = int(item.xpath("./boxee:property[@name='custom:episodenum']", namespaces=PLUGIN_NAMESPACE)[0].text.replace("Episode ", ""))
-			except:
-				tmp = link.replace(BASE_URL, "")
-				tmp = tmp.split("/")[1]
-				if "/episode-" in tmp:
-					episodeNum = int(tmp.split("-")[1])
-				elif "episode" in title.lower():
-					episodeNum = int(title.lower().split(" ")[1])
-				else:
-					episodeNum = None
-			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
-			availableResolutions = item.xpath("./boxee:property[@name='custom:available_resolutions']", namespaces=PLUGIN_NAMESPACE)[0].text.replace(" ", "").split(",")
-		
-			if GET_EXTRA_INFO:
-				extraInfo = getEpisodeInfoFromPlayerXml(mediaId)
-				if extraInfo is not None:
-					wide = extraInfo['wide']
-					duration = int(float(extraInfo['duration'])*1000)
-					if episodeNum is None and extraInfo['episodeNum'] is not None:
-						episodeNum = int(extraInfo['episodeNum'])
-				else:
-					duration = 1800000
-			else:
-				duration = 1800000
-				wide = True
-		
-			publisher = ""
-			season = None
-			keywords = ""
-			episode = {
-				"title": title,
-				"link": link,
-				"mediaId": mediaId,
-				"description": description,
-				"seriesTitle": seriesTitle,
-				"episodeNum": episodeNum,
-				"thumb": thumb,
-				"availableResolutions": availableResolutions,
-				"publisher": publisher,
-				"season": season,
-				"keywords": keywords
-			}
-			episodeList.append(episode)
-		hasSeasons = False
-	else:
-		PLUGIN_NAMESPACE   = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
-		feedHtml = XML.ElementFromURL(feed)
-		items = feedHtml.xpath("//item")
-		seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
-		Log.Debug(seriesTitle)
-		hasSeasons = True
-		for item in items:
-			title = item.xpath("./title")[0].text
-			if title.startswith("%s - " % seriesTitle):
-				title = title.replace("%s - " % seriesTitle, "")
-			elif title.startswith("%s Season " % seriesTitle):
-				title = title.replace("%s Season " % seriesTitle, "")
-				title = title.split(" ", 1)[1]
-				if title.startswith("- "):
-					title = title.split(" ",1)[1]
-			link = item.xpath("./link")[0].text
-			mediaId = int(item.xpath("./guid")[0].text.split("-")[1])
-			description = item.xpath("./description")[0].text
-			if "/><br />" in description:
-				description = description.split("/><br />")[1]
-			try:
-				episodeNum = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
-			except:
-				episodeNum = None
-			publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
-			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
-			keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
-			availableResolutions = ["12"]
-			try:
-				#Log.Debug("season: %s" % item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
-				season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
-			except:
-				#Log.Debug("season: ERROR")
-				season = None
-				hasSeasons = False
-			episode = {
-				"title": title,
-				"link": link,
-				"mediaId": mediaId,
-				"description": description,
-				"seriesTitle": seriesTitle,
-				"episodeNum": episodeNum,
-				"thumb": thumb,
-				"availableResolutions": availableResolutions,
-				"publisher": publisher,
-				"season": season,
-				"keywords": keywords
-			}
-			episodeList.append(episode)
-	
-	sortedEpisodeList = sorted(episodeList, key=lambda k: k['episodeNum'])
-	output = {}
-	if hasSeasons is True and len(episodeList) > 50:
-		seasonList = {}
-		for e in sortedEpisodeList:
-			s = e['season']
-			if s not in seasonList:
-				seasonList[s] = []
-			seasonList[s].append(e)
-		output['seasons'] = seasonList
-		output['useSeasons'] = True
-	else:
-		output['useSeasons'] = False
-		output['episodeList'] = sortedEpisodeList
-	return output
+	if LoginNotBlank():
+		loggedin = LoggedIn()
+		if not loggedin:
+			Login()
+	queueList = scrapper.getQueueList()
+	for queue in queueList:
+		dir.Append(makeQueueItem(queue))
+	return dir
+
 
 
 def makeSeriesItem(series):
@@ -856,10 +421,11 @@ def makeSeasonItem(season):
 			#thumb=season['thumb'],
 			#art=season['thumb'],
 		),
-		season=season['episodes']
+		url=season['url'],
+		season=season['seasonnum']
 	)
 	return seasonItem
-	
+
 
 def makeEpisodeItem(episode):
 	if LoginNotBlank():
@@ -879,7 +445,7 @@ def makeEpisodeItem(episode):
 		summary = episode['description']
 	episodeItem = Function(
 		PopupDirectoryItem(
-			playMenu,
+			playVideoMenu,
 			title = episode['title'],
 			subtitle = episode['season'],
 			summary = summary,
@@ -890,31 +456,73 @@ def makeEpisodeItem(episode):
 	return episodeItem
 
 
-def getVideoInfo(baseUrl, mediaId, availRes):
-	if LoginNotBlank():
-		loggedin = LoggedIn()
-		if not loggedin:
-			Login()
-	url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
-	html = HTML.ElementFromURL(url)
-	episodeInfo = {}
-	episodeInfo['baseUrl'] = baseUrl
-	episodeInfo['availRes'] = availRes
-	episodeInfo['small'] = False
-	episodeInfo['initialVolume'] = int(html.xpath("//initialvolume")[0].text)
-	episodeInfo['width'] = html.xpath("//stream_info/metadata/width")[0].text
-	episodeInfo['height'] = html.xpath("//stream_info/metadata/height")[0].text
-	try:
-		episodeInfo['duration'] = int(float(html.xpath("//stream_info/metadata/duration")[0].text)*1000)
-	except:
-		episodeInfo['duration'] = 0
-	episodeInfo['episodeNum'] = int(html.xpath("//media_metadata/episode_number")[0].text)
-	ratio = float(episodeInfo['width'])/float(episodeInfo['height'])
-	if ratio < 1.5:
-		episodeInfo['wide'] = False
+def makeQueueItem(queueInfo):
+	#"title": title,
+	#"mediaId": mediaId,
+	#"epToPlay": epToPlay,
+	#"seriesStatus": seriesStatus
+	Log.Debug("queueinfo: %s" % queueInfo)
+	queueItem = Function(
+		DirectoryItem(
+			QueueItemMenu,
+			title=queueInfo['title']
+		),
+		queueInfo=queueInfo
+	)
+	return queueItem
+
+def removeFromQueue(sender,mediaId):
+	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True,replaceParent=sender.parent)
+	req = HTTP.Request(BASE_URL+"/ajax/",values={'req':"RpcApiUserQueue_Delete",'qroup_id':group_id},cacheTime=0,immediate=True)
+	return dir
+
+
+def QueueItemMenu(sender, queueInfo):
+	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True)
+	if USING_BOXEE_FEEDS is True:
+		seriesurl = "showseries/%s" % queueInfo['mediaId']
 	else:
-		episodeInfo['wide'] = True
-	return episodeInfo
+		seriesname = queueInfo['title']
+		toremove = ["!", ":", "'", "?", ".", ",", "(", ")", "&", "@", "#", "$", "%", "^", "*", ";", "~", "`"]
+		for char in toremove:
+			seriesname = seriesname.replace(char, "")
+		seriesname = seriesname.replace("  ", " ").replace(" ", "-").lower()
+		while "--" in seriesname:
+			seriesname = seriesname.replace("--","-")
+		if seriesname.endswith("-"):
+			seriesname = seriesname.rstrip("-")
+		seriesurl = "%s/%s.rss" % (BASE_URL, seriesname)
+	nextEp = scrapper.getEpInfoFromLink(queueInfo['epToPlay'])
+	PlayNext = Function(
+		PopupDirectoryItem(
+			playVideoMenu,
+			title="Play Next",
+			subtitle=nextEp['title'],
+			summary=nextEp['description'],
+			thumb=nextEp['thumb']
+		),
+		episode=nextEp
+	)
+	ViewSeries = Function(
+		DirectoryItem(
+			ShowMenu,
+			"View Series"
+		),
+		url=seriesurl
+	)
+	RemoveSeries = Function(
+		PopupDirectoryItem(
+			removeFromQueue,
+			title="Remove from queue"
+		),
+		mediaId=queueInfo['mediaId']
+	)
+	dir.Append(PlayNext)
+	dir.Append(ViewSeries)
+	dir.Append(RemoveSeries)
+	return dir
+
+
 
 
 def getVideoUrl(videoInfo, quality):
@@ -922,59 +530,18 @@ def getVideoUrl(videoInfo, quality):
 	url = videoInfo['baseUrl']+"?p"+VIDEO_QUALITY[resNames[quality]]+"=1"
 	if videoInfo['small'] is True:
 		url = url+"&small=1"
-	if videoInfo['wide'] is True:
+	if videoInfo['wide'] is True or JUST_USE_WIDE is True:
 		url = url+"&wide=1"
 	return url
 
 
-def getAvailResFromPage(url, availableRes):
-	availRes = ['12']
-	if LoggedIn():
-		req = HTTP.Request(url=url, immediate=True, cacheTime=3600)
-		link = url.replace(BASE_URL, "")
-		r2a = '<a href="%s?p480=1" token="showmedia.480p" class="showmedia-res-btn" title="480P">480P</a>' % link
-		r2b = '<a href="%s?p480=1" token="showmedia.480p" class=" showmedia-res-btn-selected" title="480P">480P</a>' % link
-		r3a = '<a href="%s?p720=1" token="showmedia.720p" class="showmedia-res-btn" title="720P">720P</a>' % link
-		r3b = '<a href="%s?p720=1" token="showmedia.720p" class=" showmedia-res-btn-selected" title="720P">720P</a>' % link
-		if r2a in req.content or r2b in req.content:
-			availRes.append("20")
-		if r3a in req.content or r3b in req.content:
-			availRes.append("21")
-	for a in availableRes:
-		availRes.append(a)
-	availRes.sort()
-	last = availRes[-1]
-	for i in range(len(availRes)-2, -1, -1):
-		if last == availRes[i]:
-			del availRes[i]
-		else:
-			last = availRes[i]
-	return availRes
-
-
-def getPrefRes(availRes):
-	resNames = {"12":'SD', "20":'480P', "21":'720P'}
-	availResNames = []
-	for resN in availRes:
-		availResNames.append(resNames[resN])
-	if Prefs['quality'] == "Highest Avalible":
-		resName = availResNames[len(availRes)-1]
-	else:
-		if Prefs['quality'] in availResNames:
-			resName = Prefs['quality']
-		else:
-			resName = availResNames[len(availRes)-1]
-	invResNames = {'SD':"12", '480P':"20", '720P':"21"}
-	return invResNames[resName]
-
-
-def playMenu(sender, episode):
+def playVideoMenu(sender, episode):
 	resNames = {"12":'SD', "20":'480P', "21":'720P'}
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	availRes = episode['availableResolutions']
 	if DOUBLE_CHECK_AVAIL_RES:
-		availRes = getAvailResFromPage(episode['link'], availRes)
-	videoInfo = getVideoInfo(episode['link'], episode['mediaId'], availRes)
+		availRes = scrapper.getAvailResFromPage(episode['link'], availRes)
+	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], availRes)
 	vi = {}
 	vi['title'] = episode['title']
 	vi['duration'] = videoInfo['duration']
@@ -991,7 +558,7 @@ def playMenu(sender, episode):
 			)
 			dir.Append(episodeItem)
 	else:
-		prefRes = getPrefRes(availRes)
+		prefRes = scrapper.getPrefRes(availRes)
 		videoUrl = getVideoUrl(videoInfo, prefRes)
 		vi['url'] = videoUrl
 		episodeItem = Function(
