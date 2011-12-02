@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<site site="http://www.crunchyroll.com/.*/.*?p360=1&amp;small=1&amp;wide=1" 
+<site site="http://www.crunchyroll.com/.*/.*?p360=1.*&amp;small=1&amp;wide=1" 
 	plugin="http://static.lln.crunchyroll.com/flash/.*/StandardVideoPlayer.swf" 
 	initialState="waiting_for_flash_to_load" 
 	version="1.0"
@@ -126,10 +126,15 @@
 				</not>
 			</condition>
 			<action>
+				<run script="$.setVolume(100)" />
+				<goto state="playing" />
+				<!--
 				<goto state="start_video"/>
+				-->
 			</action>
 		</event>
 	</state>
+	<!--
 	<state name="start_video">
 		<event>
 			<condition>
@@ -153,6 +158,7 @@
 			</action>
 		</event>
 	</state>
+	-->
 	<!-- 
 	<state name="loading_flash"> <event> <condition> <and> <frameLoaded /> <condition name="ad_bar_present" /> </and> </condition> <action> <goto state="playing_starting_ad" /> </action> </event> <event> <condition> <and> <frameLoaded /> <condition name="bar_present" /> </and> </condition> <action> <goto state="testing1" /> </action> </event> </state>
 
