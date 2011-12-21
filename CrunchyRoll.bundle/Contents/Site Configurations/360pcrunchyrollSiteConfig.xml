@@ -216,7 +216,10 @@
 		</event>
 		<event>
 			<condition>
-				<condition name="bar_not_present"/>
+				<and>
+					<condition name="bar_not_present"/>
+					<javascript script="($.getDuration()==$.getPlayhead() ? 1 : 0)" matches="0" />
+				</and>
 			</condition>
 			<action>
 				<goto state="playing_ad"/>
@@ -225,7 +228,7 @@
 		<event>
 			<condition>
 				<and>
-					<color x="351" y="18" rgb="f7931e"/>
+					<color x="480" y="18" rgb="f7931e"/>
 					<color x="305" y="5" rgb="000000"/>
 				</and>
 			</condition>

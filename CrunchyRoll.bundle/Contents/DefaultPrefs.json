@@ -10,7 +10,8 @@
 		"type": "text",
 		"label": "Password",
 		"default": "",
-		"option": "hidden"
+		"option": "hidden",
+		"secure":   "true"
 	},
 	{
 		"id": "quality",
@@ -32,5 +33,11 @@
 		"label": "Resume or Restart",
 		"values": ["Resume", "Restart"],
 		"default": "Restart"
+	},
+	{
+		"id": "fanart",
+		"type": "bool",
+		"label": "Use Fanart.tv when possible?",
+		"default": "true"
 	}
 ]

@@ -2,8 +2,28 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>English</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundlePackageType</key>
+	<string>AAPL</string>
+	<key>CFBundleSignature</key>
+	<string>hook</string>
+	<key>CFBundleVersion</key>
+	<string>1.0</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.plexapp.plugins.CrunchyRoll</string>
+	<key>PlexClientPlatforms</key>
+	<string>MacOSX,iOS,Android,LGTV</string>
+	<key>PlexFrameworkVersion</key>
+	<string>2</string>
+	<key>PlexPluginMode</key>
+	<string>AlwaysOn</string>
+	<key>PlexPluginRegions</key>
+	<array>
+		<string>US</string>
+	</array>
 	<key>PlexClientCapabilities</key>
 	<dict>
 		<key>protocols</key>
@@ -11,19 +31,9 @@
 			<string>webkit</string>
 		</array>
 	</dict>
-	<key>PlexClientPlatforms</key>
-	<string>MacOSX</string>
-	<key>PlexFrameworkVersion</key>
-	<string>2</string>
 	<key>PlexMediaContainer</key>
 	<array>
 		<string>Flash</string>
-	</array>
-	<key>PlexPluginMode</key>
-	<string>AlwaysOn</string>
-	<key>PlexPluginRegions</key>
-	<array>
-		<string>US</string>
 	</array>
 	<key>PlexURLServices</key>
 	<dict>
@@ -33,13 +43,9 @@
 			<string>http://.*crunchyroll\.com/.*</string>
 			<key>Identifier</key>
 			<string>com.plexapp.plugins.CrunchyRoll</string>
-			<key>TestURLs</key>
-			<array>
-				<string>http://www.crunchyroll.com/bleach/episode-35-543645</string>
-				<string>http://www.crunchyroll.com/media-543645</string>
-				<string>http://www.crunchyroll.com/11eyes/episode-1-piros-jszaka-red-night-535080</string>
-			</array>
 		</dict>
 	</dict>
+	<key>PlexPluginDevMode</key>
+	<string>1</string>
 </dict>
 </plist>

@@ -1,0 +1,207 @@
+VIDEO_QUALITY 		= {"SD":"360","480P":"480","720P":"720"}
+RES_NAMES     		= {'12':'SD', '20':'480P', '21':'720P'}
+RES_LIST = {'12':360,'20':480,'21':720}
+PLUGIN_NAMESPACE 	= {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
+BASE_URL			= "http://www.crunchyroll.com"
+API_URL = "://www.crunchyroll.com/ajax/"
+API_HEADERS = {
+'User-Agent':"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16",
+'Host':"www.crunchyroll.com",
+'Accept-Language':"en,en-US;q=0.9,ja;q=0.8,fr;q=0.7,de;q=0.6,es;q=0.5,it;q=0.4,pt;q=0.3,pt-PT;q=0.2,nl;q=0.1,sv;q=0.1,nb;q=0.1,da;q=0.1,fi;q=0.1,ru;q=0.1,pl;q=0.1,zh-CN;q=0.1,zh-TW;q=0.1,ko;q=0.1",
+'Accept-Encoding':"gzip, deflate",
+'Cookie':"",
+'Accept':"*/*",
+'X-Requested-With':"XMLHttpRequest",
+'Content-Transfer-Encoding':"binary",
+'Content-Type':"application/x-www-form-urlencoded"
+}
+
+HTTP.CacheTime = 3600
+HTTP.Headers["User-agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
+HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
+
+import re, os
+
+def NormalizeURL(url):
+	return str(url)
+
+def getXpathText(item, path):
+	try: ret = item.xpath(path, namespaces=PLUGIN_NAMESPACE)[0].text
+	except: pass
+	return ret
+
+def getXpathInt(item, path):
+	try: ret = int(item.xpath(path, namespaces=PLUGIN_NAMESPACE)[0].text)
+	except: pass
+	return ret
+
+def getEpisodeInfoFromPlayerXml(mediaId):
+	try:
+		url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
+		html = HTML.ElementFromURL(url, cacheTime=3600)
+		episodeInfo = {}
+		episodeInfo['backgroundUrl'] = html.xpath("//backgroundurl")[0].text
+		episodeInfo['duration'] = html.xpath("//stream_info/metadata/duration")[0].text
+		episodeInfo['episodeNum'] = html.xpath("//media_metadata/episode_number")[0].text
+	except:
+		episodeInfo = None
+	return episodeInfo
+
+
+def MetadataObjectForURL(url):
+	#Log.Debug("Dict.keys(): %s"%Dict.keys())
+	Log.Debug("MetadataObjectForURL(%s)"%url)
+	seriesTitle = url.split("/")[3]
+	goalId = url.split("/")[4].split("?")[0].split("-")
+	goalId = goalId[len(goalId) - 1]
+	goalId = int(goalId)
+	feedHtml = XML.ElementFromURL("http://www.crunchyroll.com/%s.rss"%seriesTitle, cacheTime=3600)
+	items = feedHtml.xpath("//item[guid='http://www.crunchyroll.com/media-"+str(goalId)+"']")
+	for item in items:
+		mediaId = int(item.xpath("./guid")[0].text.split("-")[1])
+		if mediaId == goalId:
+			title = item.xpath("./title")[0].text
+			if title.startswith("%s - " % seriesTitle):
+				title = title.replace("%s - " % seriesTitle, "")
+			elif title.startswith("%s Season " % seriesTitle):
+				title = title.replace("%s Season " % seriesTitle, "").split(" ", 1)[1].lstrip("- ")
+			
+			link = item.xpath("./link")[0].text
+			description = String.StripTags(item.xpath("./description")[0].text.replace("<br />", "\n"))
+			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large","_full")
+			
+			episodeNum = getXpathInt(item, "./crunchyroll:episodeNumber")
+			#try: episodeNum = int(getEpisodeInfoFromPlayerXml(mediaId)['episodeNum'])
+			#except: pass
+			duration = getXpathInt(item, "./crunchyroll:duration")
+			#try: duration = int(getEpisodeInfoFromPlayerXml(mediaId)['duration'])
+			#except: pass
+			publisher = getXpathText(item, "./crunchyroll:publisher")
+			season = getXpathInt(item, "./crunchyroll:season")
+			
+			obj = EpisodeObject(
+				url = link,
+				title = title,
+				show = seriesTitle,
+				summary = description,
+				thumb = thumb
+		    )
+			if duration: obj.duration = duration
+			if season: obj.season = season
+			if episodeNum: obj.absolute_index = episodeNum
+			#if origAvail: obj.originally_available_at = origAvail
+			#if rating: obj.rating = rating 			#An integer attribute with a valuebetween 0 and 10 specifying the episode’s rating.
+			#if writers: obj.writers = writers 		#A list of strings specifying the episode’s writers.
+			#if directors: obj.directors = directors #A list of strings specifying the episode’s directors.
+			#if producers: obj.producers = producers #A list of strings specifying the episode’s producers.
+			#if art: obj.art = art 					#A string specifying an image resource to use as the episode’s background art.
+			return obj
+	return EpisodeObject(url=url)
+
+
+####################################################################################################
+def MediaObjectsForURL(url):
+	Log.Debug("MediaObjectsForURL(%s)"%url)
+	Login()
+	u = removeAuth(url)
+	isSmall, availRes = getInfoPage(u)
+	#Log.Debug("isSmall: %s"%isSmall)
+	ret = []
+	isWide = IsWide(u.split("-")[len(u.split("-"))-1])
+	Log.Debug("availRes: %s"%availRes)
+	for res in availRes:
+		vurl= getVideoUrl(u, res, isSmall, isWide)
+		Log.Debug("vurl: %s"%vurl)
+		ret.append(
+			MediaObject(
+				parts = [PartObject(key=Callback(PlayVideo, url=vurl))],
+				protocol = Protocol.WebKit,
+				video_resolution = RES_LIST[res],
+				audio_channels = 2
+			)
+		)
+	Log.Debug("ret: %s"%ret)
+	return ret
+
+
+def getVideoUrl(url, quality, isSmall, isWide):
+	qual = VIDEO_QUALITY[RES_NAMES[quality]]
+	small = ("1" if isSmall is True else "0")
+	wide = ("1" if isWide is True else "0")
+	return url+"?p%s=1&t=0&small=%s&wide=%s"%(qual,small,wide)
+
+
+####################################################################################################
+
+@indirect
+def PlayVideo(url):#, isSmall, isWide, res):
+	final_url = url#getVideoUrl(url, res, isSmall, isWide).decode('unicode_escape')
+	Log.Debug("final_url: %s"%final_url)
+	Redirect(WebVideoItem(final_url))
+	#Log.Debug("final: %s"%final_url)
+	#c = ObjectContainer()
+	#c.add(VideoClipObject(
+	#  key = URLService.LookupURLForMediaURL(final_url.decode('unicode_escape')),
+	#  items = [
+	#    MediaObject(
+	#      parts = [
+	#        PartObject(key = final_url)
+	#      ]
+	#    )
+	#  ]
+	#))
+	#c.http_cookies = HTTP.CookiesForURL(BASE_URL)
+	#return c
+
+
+def IsWide(mediaId):
+	try:
+		url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
+		html = HTML.ElementFromURL(url)
+		width = html.xpath("//stream_info/metadata/width")[0].text
+		height = html.xpath("//stream_info/metadata/height")[0].text
+		ratio = float(width)/float(height)
+		wide = (ratio > 1.5)
+	except:
+		wide = False
+	return wide
+
+
+def getInfoPage(url):
+	availRes = ['12']
+	req = HTTP.Request(url=url, immediate=True, cacheTime=3600)
+	html = HTML.ElementFromString(req.content)
+	try: small = (len(html.xpath("//a[@href='/freetrial/anime/?from=showmedia_noads']")) > 0)
+	except: small = False
+	if small is False: 
+		try:
+			if len(html.xpath("//a[@token='showmedia.480p']")) > 0:
+				availRes.append("20")
+			if len(html.xpath("//a[@token='showmedia.720p']")) > 0:
+				availRes.append("21")
+		except: pass
+	availRes.sort()
+	return [small, availRes]
+
+def getAccount():
+	loc = os.path.expanduser("~/Library/Application Support/Plex Media Server/Plug-in Support/Preferences/com.plexapp.plugins.CrunchyRoll.xml")
+	xmlFile = os.fdopen(os.open(loc, os.O_RDONLY), 'r')
+	xmlStr = xmlFile.read()
+	xmlFile.close()
+	xml = XML.ElementFromString(xmlStr)
+	username = xml.xpath("//username")
+	password = xml.xpath("//password")
+	return [username, password]
+
+def Login():
+	username, password = getAccount()
+	if username is not "" and password is not "":
+		data = { "name": username, "password": password, "req": "RpcApiUser_Login" }
+		h = API_HEADERS
+		h['Cookie']=HTTP.CookiesForURL(BASE_URL)
+		req = HTTP.Request("https"+API_URL,values=data,cacheTime=0,immediate=True, headers=h)
+		response = JSON.ObjectFromString(re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content)))
+	return response
+
+def removeAuth(url):
+	return url.split("?")[0]

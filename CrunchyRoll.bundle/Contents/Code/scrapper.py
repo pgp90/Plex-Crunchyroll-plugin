@@ -1,25 +1,29 @@
+import tvdbscrapper, fanartScrapper
+
+USE_RANDOM_FANART = True
+SERIES_FEED_CACHE_TIME = 3600 # 1 hour
+QUEUE_LIST_CACHE_TIME = 15 # 15 seconds
+ART_SIZE_LIMIT = True
 
 def getQueueList():
 	queueURL = BASE_URL+"/queue"
-	req = HTTP.Request(queueURL,cacheTime=10,immediate=True)
-	queueHtml = HTML.ElementFromString(req.content)
+	queueHtml = HTML.ElementFromURL(queueURL,cacheTime=QUEUE_LIST_CACHE_TIME)
 	queueList = []
 	items = queueHtml.xpath("//div[@class='queue-container clearfix']/ul[@id='sortable']/li")
 	for item in items:
 		title = item.xpath("./div[@class='title']/a")[0].text.replace("\\\\","").lstrip("\n ").rstrip(" ")
-		mediaId = int(item.xpath(".")[0].get('id').replace("queue_item_",""))
-		epToPlay = BASE_URL+"/"+item.xpath("./div[@class='play']/button")[0].get('onclick').replace("window.location=\"\\/","").split("?t=")[0].replace("\\/","/")
-		try:
-			seriesStatus = item.xpath("./div[@class='status']/span")[0].text.lstrip("\n ").rstrip(" ")
-		except:
-			seriesStatus = item.xpath("./div[@class='status']")[0].text.lstrip("\n ").rstrip(" ")
+		seriesId = int(item.xpath(".")[0].get('id').replace("queue_item_",""))
+		try: epToPlay = BASE_URL+"/"+item.xpath("./div[@class='play']/button")[0].get('onclick').replace("window.location=\"\\/","").split("?t=")[0].replace("\\/","/")
+		except: epToPlay = None
+		try: seriesStatus = item.xpath("./div[@class='status']/span")[0].text.lstrip("\n ").rstrip(" ")
+		except: seriesStatus = item.xpath("./div[@class='status']")[0].text.lstrip("\n ").rstrip(" ")
 		if "Complete" in seriesStatus:
 			seriesStatus = "Complete"
 		else:
 			seriesStatus = "Ongoing"
 		queueItem = {
 			"title": title,
-			"mediaId": mediaId,
+			"seriesId": seriesId,
 			"epToPlay": epToPlay,
 			"seriesStatus": seriesStatus
 		}
@@ -27,43 +31,167 @@ def getQueueList():
 	return queueList
 
 
+def cacheAllSeries():
+	#startTime = Datetime.Now()
+	seriesDict = Dict['series']
+	for feed in ["genre_anime_all", "drama"]:
+		feedHtml = HTML.ElementFromURL(FEED_BASE_URL+feed,cacheTime=SERIES_FEED_CACHE_TIME)
+		items = feedHtml.xpath("//item")
+		if seriesDict is None:
+			seriesDict = {}
+		@parallelize
+		def parseSeriesItems():
+			for item in items:
+				seriesId = int(item.xpath("./guid")[0].text.split(".com/")[1])
+				@task
+				def parseSeriesItem(item=item,seriesId=seriesId):
+					if not (str(seriesId) in seriesDict):
+						title = item.xpath("./title")[0].text
+						description = item.xpath("./description")[0].text
+						if Prefs['fanart'] is True:
+							tvdbIdr = tvdbscrapper.GetTVDBID(title, Locale.Language.English)
+							tvdbId = tvdbIdr['id']
+						else:
+							tvdbId = none
+						#if USE_RANDOM_FANART is True and tvdbId is not None:
+						#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
+						#	art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
+						#	if thumb is None:
+						#		thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						#	if art is None:
+						#		art = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						#else:
+						thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						art = thumb
+						dictInfo = {
+							"title": title,
+							"seriesId": seriesId,
+							"tvdbId": tvdbId,
+							"description": description,
+							"thumb": thumb,
+							"art": art,
+							'epsRetrived': None,
+							'epList': None
+						}
+						seriesDict[str(seriesId)] = dictInfo
+					else:
+						#tvdbId = seriesDict[str(seriesId)]['tvdbId']
+						#if USE_RANDOM_FANART is True and tvdbId is not None:
+						#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts','tvthumbs'])
+						#	art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
+						#	if thumb is None:
+						#		thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						#	if art is None:
+						#		art = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						#else:
+						thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						art = thumb
+						seriesDict[str(seriesId)]['thumb'] = thumb
+						seriesDict[str(seriesId)]['art'] = art
+				
+		
+		Dict['series'] = seriesDict
+		#endTime = Datetime.Now()
+		#Log.Debug("start time: %s"%startTime)
+		#Log.Debug("end time: %s"%endTime)
+
+
 def getSeriesListFromFeed(feed):
+	#startTime = Datetime.Now()
 	feedURL = FEED_BASE_URL+feed
-	feedHtml = HTML.ElementFromURL(feedURL)
+	feedHtml = HTML.ElementFromURL(feedURL,cacheTime=SERIES_FEED_CACHE_TIME)
 	seriesList = []
 	items = feedHtml.xpath("//item")
 	seriesDict = Dict['series']
-	if seriesDict is None:
-		seriesDict = {}
-	for item in items:
-		mediaId = int(item.xpath("./guid")[0].text.split(".com/")[1])
-		if not (str(mediaId) in seriesDict):
-			title = item.xpath("./title")[0].text
-			description = item.xpath("./description")[0].text
-			thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
-			series = {
-				"title": title,
-				"seriesId": mediaId,
-				"tvdbId": None,
-				"description": description,
-				"thumb": thumb
-			}
-			dictInfo = series
-			dictInfo['epsRetrived'] = None
-			dictInfo['epList'] = []
-			seriesDict[str(mediaId)] = dictInfo
-		else:
-			seriesDict[str(mediaId)]['thumb'] = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
-			series = {
-				"title": seriesDict[str(mediaId)]['title'],
-				"seriesId": mediaId,
-				"tvdbId": seriesDict[str(mediaId)]['tvdbId'],
-				"description": seriesDict[str(mediaId)]['description'],
-				"thumb": seriesDict[str(mediaId)]['thumb']
-			}
-		seriesList.append(series)
-	Dict['series'] = seriesDict
+	if Dict['series'] is None:
+		Dict['series'] = {}
+	@parallelize
+	def parseSeriesItems():
+		for item in items:
+			seriesId = int(item.xpath("./guid")[0].text.split(".com/")[1])
+			@task
+			def parseSeriesItem(item=item,seriesId=seriesId):
+				if not (str(seriesId) in Dict['series']):
+					title = item.xpath("./title")[0].text
+					tvdbIdr = tvdbscrapper.GetTVDBID(title, Locale.Language.English)
+					tvdbId = tvdbIdr['id']
+					description = item.xpath("./description")[0].text
+					#if USE_RANDOM_FANART is True and tvdbId is not None:
+					#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
+					#	art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
+					#	if thumb is None:
+					#		thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					#	if art is None:
+					#		art = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					#else:
+					thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					if ART_SIZE_LIMIT is False:
+						art = thumb
+					else:
+						art = None
+					series = {
+						"title": title,
+						"seriesId": seriesId,
+						"tvdbId": tvdbId,
+						"description": description,
+						"thumb": thumb,
+						"art": art
+					}
+					dictInfo = series
+					dictInfo['epsRetrived'] = None
+					dictInfo['epList'] = []
+					Dict['series'][str(seriesId)] = dictInfo
+				else:
+					#tvdbId = seriesDict[str(seriesId)]['tvdbId']
+					#if USE_RANDOM_FANART is True and tvdbId is not None:
+					#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
+					#	art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
+					#	if thumb is None:
+					#		thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					#	if art is None:
+					#		art = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					#else:
+					thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					if ART_SIZE_LIMIT is False:
+						art = thumb
+					else:
+						art = None
+					seriesDict = Dict['series'][str(seriesId)]
+					seriesDict['thumb'] = thumb
+					seriesDict['art'] = art
+					Dict['series'][str(seriesId)] = seriesDict
+					series = {
+						"title": seriesDict['title'],
+						"seriesId": seriesId,
+						"tvdbId": seriesDict['tvdbId'],
+						"description": seriesDict['description'],
+						"thumb": seriesDict['thumb'],
+						"art": seriesDict['art']
+					}
+				seriesList.append(series)
+			
+	
+	#midTime = Datetime.Now()
+	#Dict['series'] = seriesDict
 	sortedSeriesList = sorted(seriesList, key=lambda k: k['title'])
+	#endTime = Datetime.Now()
+	#Log.Debug("start time: %s"%startTime)
+	#Log.Debug("mid time: %s"%midTime)
+	#Log.Debug("end time: %s"%endTime)
+	#Log.Debug("not found: %s"%notFoundList)
+	
+	if False:
+		ls = "\n"
+		for t in seriesList:
+			if t['tvdbId'] is not None:
+				ls = '%s"%s": %s,\n'%(ls,t['title'],t['tvdbId'])
+		Log.Debug("list: %s"%ls)
+		ls = "\n"
+		for t in seriesList:
+			if t['tvdbId'] is None:
+				ls = '%s"%s": %s,\n'%(ls,t['title'],t['tvdbId'])
+		Log.Debug("list: %s"%ls)
+	
 	return sortedSeriesList
 
 
@@ -77,7 +205,7 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 			episodeInfo = {}
 			#episodeInfo['videoFormat'] = html.xpath("//videoformat")[0].text
 			#episodeInfo['backgroundUrl'] = html.xpath("//backgroundurl")[0].text
-			episodeInfo['initialVolume'] = int(html.xpath("//initialvolume")[0].text)
+			#episodeInfo['initialVolume'] = int(html.xpath("//initialvolume")[0].text)
 			#episodeInfo['initialMute'] = html.xpath("//initialmute")[0].text
 			#episodeInfo['host'] = html.xpath("//stream_info//host")[0].text
 			#episodeInfo['file'] = html.xpath("//stream_info/file")[0].text
@@ -104,8 +232,9 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 
 def getEpisodeListForSeries(seriesId):
 	#Log.Debug("Dict['episodes']: %s"%Dict['episodes'])
+	if str(seriesId) not in Dict['series']:
+		cacheAllSeries()
 	seriesData = Dict['series'][str(seriesId)]
-	#Log.Debug("seriesData: %s"%seriesData)
 	if seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=60) <= Datetime.Now():
 		epList = getEpisodeListFromFeed(seriesTitleToUrl(seriesData['title']))
 		seriesData['epsRetrived'] = Datetime.Now()
@@ -126,60 +255,116 @@ def getEpisodeListForSeries(seriesId):
 	return formateEpList(epList,hasSeasons)
 
 
+def CacheAll():
+	global avgt
+	global avgc
+	tvdbscrapper.setuptime()
+	t = Datetime.Now()
+	avgt = t - t
+	avgc = 0
+	t1 = Datetime.Now()
+	cacheAllSeries()
+	t2 = Datetime.Now()
+	@parallelize
+	def cacheShowsEps():
+		Log.Debug(str(Dict['series'].keys()))
+		for sik in Dict['series'].keys():
+			seriesId = sik
+			@task
+			def cacheShowEps(seriesId=seriesId):
+				global avgt
+				global avgc
+				ta = Datetime.Now()
+				seriesData = Dict['series'][str(seriesId)]
+				if seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=60) <= Datetime.Now():
+					epList = getEpisodeListFromFeed(seriesTitleToUrl(seriesData['title']))
+					seriesData['epsRetrived'] = Datetime.Now()
+					epIdList = []
+					for ep in epList:
+						epIdList.append(ep['mediaId'])
+					seriesData['epList'] = epIdList
+					Dict['series'][str(seriesId)] = seriesData
+					tb = Datetime.Now()
+					avgt = avgt + (tb - ta)
+					avgc = avgc + 1
+			
+	
+	t3 = Datetime.Now()
+	tavg = avgt / avgc
+	idavg = tvdbscrapper.getavg()
+	Log.Debug("cache series time: %s"%(t2-t1))
+	Log.Debug("cache all ep time: %s"%(t3-t2))
+	Log.Debug("cache ep avg time: %s"%(tavg))
+	Log.Debug("cache id avg time: %s"%(idavg))
+	
+
+
 def getEpisodeListFromFeed(feed):
-	episodeList = []
-	PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
-	feedHtml = XML.ElementFromURL(feed)
-	items = feedHtml.xpath("//item")
-	seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
-	hasSeasons = True
-	for item in items:
-		mediaId = int(item.xpath("./guid")[0].text.split("-")[1])
-		if not str(mediaId) in Dict['episodes']:
-			title = item.xpath("./title")[0].text
-			if title.startswith("%s - " % seriesTitle):
-				title = title.replace("%s - " % seriesTitle, "")
-			elif title.startswith("%s Season " % seriesTitle):
-				title = title.replace("%s Season " % seriesTitle, "")
-				title = title.split(" ", 1)[1].lstrip("- ")
-			link = item.xpath("./link")[0].text
-			description = item.xpath("./description")[0].text
-			if "/><br />" in description:
-				description = description.split("/><br />")[1]
-			try:
-				episodeNum = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
-			except:
-				episodeNum = None
-			publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
-			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
-			keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
-			availableResolutions = []#getAvailResFromPage(link, ['12'])
-			try:
-				season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
-			except:
-				season = None
-				hasSeasons = False
-			mediaType = item.xpath("./media:category", namespaces=PLUGIN_NAMESPACE)[0].get('label')
-			episode = {
-				"title": title,
-				"link": link,
-				"mediaId": mediaId,
-				"description": description,
-				"seriesTitle": seriesTitle,
-				"episodeNum": episodeNum,
-				"thumb": thumb,
-				"availableResolutions": availableResolutions,
-				"publisher": publisher,
-				"season": season,
-				"keywords": keywords,
-				"type": mediaType
-			}
-			Dict['episodes'][str(mediaId)] = episode
-		else:
-			episode = Dict['episodes'][str(mediaId)]
-		episodeList.append(episode)	
-	sortedEpisodeList = sorted(episodeList, key=lambda k: k['episodeNum'])
-	return sortedEpisodeList
+	try:
+		episodeList = []
+		PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
+		feedHtml = XML.ElementFromURL(feed)
+		items = feedHtml.xpath("//item")
+		seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
+		hasSeasons = True
+		@parallelize
+		def parseEpisodeItems():
+			for item in items:
+				mediaId = int(item.xpath("./guid")[0].text.split("-")[1])
+				@task
+				def parseEpisodeItem(item=item,mediaId=mediaId):
+					if not str(mediaId) in Dict['episodes']:
+						title = item.xpath("./title")[0].text
+						if title.startswith("%s - " % seriesTitle):
+							title = title.replace("%s - " % seriesTitle, "")
+						elif title.startswith("%s Season " % seriesTitle):
+							title = title.replace("%s Season " % seriesTitle, "")
+							title = title.split(" ", 1)[1].lstrip("- ")
+						link = item.xpath("./link")[0].text
+						description = item.xpath("./description")[0].text
+						if "/><br />" in description:
+							description = description.split("/><br />")[1]
+						try:
+							episodeNum = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
+						except:
+							episodeNum = None
+						try: publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
+						except: publisher = ""
+						thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						try: keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
+						except: keywords = ""
+						availableResolutions = []#getAvailResFromPage(link, ['12'])
+						try:
+							season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
+						except:
+							season = None
+							hasSeasons = False
+						mediaType = item.xpath("./media:category", namespaces=PLUGIN_NAMESPACE)[0].get('label')
+						episode = {
+							"title": title,
+							"link": link,
+							"mediaId": mediaId,
+							"description": description,
+							"seriesTitle": seriesTitle,
+							"episodeNum": episodeNum,
+							"thumb": thumb,
+							"availableResolutions": availableResolutions,
+							"publisher": publisher,
+							"season": season,
+							"keywords": keywords,
+							"type": mediaType
+						}
+						Dict['episodes'][str(mediaId)] = episode
+					else:
+						episode = Dict['episodes'][str(mediaId)]
+					episodeList.append(episode)
+				
+		
+		sortedEpisodeList = sorted(episodeList, key=lambda k: k['episodeNum'])
+		return sortedEpisodeList
+	except:
+		Log.Error("feed: %s"%feed)
+		return None
 
 
 def formateEpList(epList,hasSeasons):
@@ -202,7 +387,13 @@ def formateEpList(epList,hasSeasons):
 
 def getSeasonEpisodeListFromFeed(seriesId,season):
 	tmp = getEpisodeListForSeries(seriesId)
-	epList = tmp['seasons'][season]
+	if season == "all":
+		epList = []
+		for s in tmp['seasons'].keys():
+			for e in tmp['seasons'][s]:
+				epList.append(e)
+	else:
+		epList = tmp['seasons'][season]
 	return epList
 
 
@@ -214,32 +405,37 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 	episodeInfo['availRes'] = availRes
 	width = html.xpath("//stream_info/metadata/width")[0].text
 	height = html.xpath("//stream_info/metadata/height")[0].text
-	try:
-		episodeInfo['duration'] = int(float(html.xpath("//stream_info/metadata/duration")[0].text)*1000)
-	except:
-		episodeInfo['duration'] = 0
-	try:
-		episodeInfo['episodeNum'] = int(html.xpath("//media_metadata/episode_number")[0].text)
-	except:
-		episodeInfo['episodeNum'] = 0
+	
+	try: episodeInfo['duration'] = int(float(html.xpath("//stream_info/metadata/duration")[0].text)*1000)
+	except: episodeInfo['duration'] = 0
+	
+	try: episodeInfo['episodeNum'] = int(html.xpath("//media_metadata/episode_number")[0].text)
+	except: episodeInfo['episodeNum'] = 0
+	
 	ratio = float(width)/float(height)
 	episodeInfo['wide'] = (ratio > 1.5)
 	return episodeInfo
 
 
+
 def getAvailResFromPage(url, availableRes):
 	availRes = ['12']
-	if LoggedIn():
-		req = HTTP.Request(url=url, immediate=True, cacheTime=3600)
-		link = url.replace(BASE_URL, "")
-		r2a = '<a href="%s?p480=1" token="showmedia.480p" class="showmedia-res-btn" title="480P">480P</a>' % link
-		r2b = '<a href="%s?p480=1" token="showmedia.480p" class=" showmedia-res-btn-selected" title="480P">480P</a>' % link
-		r3a = '<a href="%s?p720=1" token="showmedia.720p" class="showmedia-res-btn" title="720P">720P</a>' % link
-		r3b = '<a href="%s?p720=1" token="showmedia.720p" class=" showmedia-res-btn-selected" title="720P">720P</a>' % link
-		if r2a in req.content or r2b in req.content:
-			availRes.append("20")
-		if r3a in req.content or r3b in req.content:
-			availRes.append("21")
+	link = url.replace(BASE_URL, "")
+	t1 = Datetime.Now()
+	req = HTTP.Request(url=url, immediate=True, cacheTime=3600*24)
+	t2 = Datetime.Now()
+	try: small = (len(html.xpath("//a[@href='/freetrial/anime/?from=showmedia_noads']")) > 0)
+	except: small = False
+	t3 = Datetime.Now()
+	if small is False: 
+		try:
+			if len(html.xpath("//a[@token='showmedia.480p']")) > 0:
+				availRes.append("20")
+			if len(html.xpath("//a[@token='showmedia.720p']")) > 0:
+				availRes.append("21")
+		except: pass
+	t4 = Datetime.Now()
+	availRes.sort()
 	for a in availableRes:
 		availRes.append(a)
 	availRes.sort()
@@ -249,7 +445,12 @@ def getAvailResFromPage(url, availableRes):
 			del availRes[i]
 		else:
 			last = availRes[i]
-	return availRes
+	t5 = Datetime.Now()
+	Log.Debug("getAvailResFromPage req time: %s"%(t2-t1))
+	Log.Debug("getAvailResFromPage small time: %s"%(t3-t2))
+	Log.Debug("getAvailResFromPage inspect time: %s"%(t4-t3))
+	Log.Debug("getAvailResFromPage sort time: %s"%(t5-t4))
+	return availRes#[small, availRes]
 
 
 def getPrefRes(availRes):
@@ -284,8 +485,6 @@ def seriesTitleToUrl(title):
 	title = title.replace("  ", " ").replace(" ", "-").lower()
 	while "--" in title:
 		title = title.replace("--","-")
-	if title.endswith("-"):
-		title = title.rstrip("-")
 	url = "%s/%s.rss" % (BASE_URL, title)
 	return url
 
