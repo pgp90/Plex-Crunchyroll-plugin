@@ -56,7 +56,7 @@ DRAMA_GENRE_LIST = {}
 
 JUST_USE_WIDE = False
 CHECK_PLAYER = False
-
+SPLIT_LONG_LIST = True
 
 HTTP.CacheTime = 3600
 HTTP.Headers["User-agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"

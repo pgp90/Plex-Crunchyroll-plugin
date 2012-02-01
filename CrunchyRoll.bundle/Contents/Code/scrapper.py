@@ -4,6 +4,11 @@ USE_RANDOM_FANART = True
 SERIES_FEED_CACHE_TIME = 3600 # 1 hour
 QUEUE_LIST_CACHE_TIME = 15 # 15 seconds
 ART_SIZE_LIMIT = True
+SPLIT_LONG_LIST = True
+
+SERIES_TITLE_URL_FIX = {
+"goshuushosama-ninomiya-kun":"good-luck-ninomiya-kun"
+}
 
 def getQueueList():
 	queueURL = BASE_URL+"/queue"
@@ -485,6 +490,8 @@ def seriesTitleToUrl(title):
 	title = title.replace("  ", " ").replace(" ", "-").lower()
 	while "--" in title:
 		title = title.replace("--","-")
+	if title in SERIES_TITLE_URL_FIX.keys():
+		title = SERIES_TITLE_URL_FIX[title]
 	url = "%s/%s.rss" % (BASE_URL, title)
 	return url
 
