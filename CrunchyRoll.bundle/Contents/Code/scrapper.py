@@ -364,11 +364,14 @@ def getEpisodeListFromFeed(feed):
 						episode = Dict['episodes'][str(mediaId)]
 					episodeList.append(episode)
 				
-		
 		sortedEpisodeList = sorted(episodeList, key=lambda k: k['episodeNum'])
 		return sortedEpisodeList
-	except:
-		Log.Error("feed: %s"%feed)
+	except Exception, arg:
+		Log.Error("#####We got ourselves a dagnabbit exception:")
+		Log.Error(repr(Exception) + repr(arg))
+		Log.Error("feed: %s" % feed)
+		# maybe just pass the exception up the chain here
+		# instead of returning None
 		return None
 
 
@@ -428,34 +431,39 @@ def getAvailResFromPage(url, availableRes):
 	link = url.replace(BASE_URL, "")
 	t1 = Datetime.Now()
 	req = HTTP.Request(url=url, immediate=True, cacheTime=3600*24)
+	html = HTML.ElementFromString(req)
 	t2 = Datetime.Now()
 	try: small = (len(html.xpath("//a[@href='/freetrial/anime/?from=showmedia_noads']")) > 0)
 	except: small = False
 	t3 = Datetime.Now()
-	if small is False: 
+	if small is False:
 		try:
 			if len(html.xpath("//a[@token='showmedia.480p']")) > 0:
 				availRes.append("20")
 			if len(html.xpath("//a[@token='showmedia.720p']")) > 0:
-				availRes.append("21")
-		except: pass
+				availRes.append("21")			
+			# HACKTASTIC: just use 22 as an enum for 1080p until crunchyroll
+			# decides to start using it			
+			if len(html.xpath("//a[@token='showmedia.1080p']")) > 0:
+				availRes.append("22")
+
+		except Exception,arg:
+			Log.Error("####getAvalResFromPage() we got ourselves an exception:")
+			Log.Error(Exception)
+			Log.Error(repr(arg))
+
 	t4 = Datetime.Now()
-	availRes.sort()
 	for a in availableRes:
-		availRes.append(a)
-	availRes.sort()
-	last = availRes[-1]
-	for i in range(len(availRes)-2, -1, -1):
-		if last == availRes[i]:
-			del availRes[i]
-		else:
-			last = availRes[i]
+		if a not in availRes: availRes.append(a)
+
 	t5 = Datetime.Now()
+
 	Log.Debug("getAvailResFromPage req time: %s"%(t2-t1))
 	Log.Debug("getAvailResFromPage small time: %s"%(t3-t2))
 	Log.Debug("getAvailResFromPage inspect time: %s"%(t4-t3))
 	Log.Debug("getAvailResFromPage sort time: %s"%(t5-t4))
-	return availRes#[small, availRes]
+	
+	return availRes
 
 
 def getPrefRes(availRes):

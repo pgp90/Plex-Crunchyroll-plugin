@@ -18,14 +18,18 @@ PREFS_ICON                   = 'icon-prefs.png'
 FEED_BASE_URL                = "http://www.crunchyroll.com/boxee_feeds/"
 
 THUMB_QUALITY                = {"Low":"_medium","Medium":"_large","High":"_full"}
-VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720"}
+VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720", "1080P":"1080"}
 
 LAST_PLAYER_VERSION = "20111130163346.fb103f9787f179cd0f27be64da5c23f2"
 PREMIUM_TYPE_ANIME = '2'
 PREMIUM_TYPE_DRAMA = '4'
 ANIME_TYPE = "Anime"
 DRAMA_TYPE = "Drama"
-RES_NAMES = {'12':'SD', '20':'480P', '21':'720P'}
+
+# NOTE: number 22 for 1080P is a bogus number created by me (Jeremy)
+# as a hack since crunchyroll doesn't even list these numbers anymore
+
+RES_NAMES = {'12':'SD', '20':'480P', '21':'720P', '22':'1080P'}
 
 ANIME_GENRE_LIST = {
 	'Action':'action',
@@ -168,14 +172,16 @@ def LoginAtStart():
 	global GlobalWasLoggedIn
 	global AnimePremium
 	global DramaPremium
+	HTTP.ClearCookies()
 	if LoginNotBlank():
 		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
 		response = makeAPIRequest(data)
 		Log.Debug("loginResponse:%s"%response)
 		response = JSON.ObjectFromString(response)
 		GlobalWasLoggedIn = (response.get('result_code') == 1)
-		AnimePremium = (response.get('data').get('premium').get(PREMIUM_TYPE_ANIME) == 1)
-		DramaPremium = (response.get('data').get('premium').get(PREMIUM_TYPE_DRAMA) == 1)
+		if GlobalWasLoggedIn:
+			AnimePremium = (response.get('data').get('premium').get(PREMIUM_TYPE_ANIME) == 1)
+			DramaPremium = (response.get('data').get('premium').get(PREMIUM_TYPE_DRAMA) == 1)
 	return GlobalWasLoggedIn
 
 
@@ -649,10 +655,17 @@ def playVideoMenu(sender, episode):
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	if len(episode['availableResolutions']) == 0:
 		episode['availableResolutions'] = scrapper.getAvailResFromPage(episode['link'], ['12'])
+		
+		# FIXME I guess it's better to have something than nothing? It was giving Key error
+		# on episode number
+		if str(episode['mediaId']) not in Dict['episodes']:
+			Dict['episodes'][str(episode['mediaId'])] = episode
+	
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
 	videoInfo['small'] = (GlobalWasLoggedIn is True and isPremium(episode['type']) is True)
-	if Prefs['quality'] is "Ask":
+
+	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
 			videoUrl = getVideoUrl(videoInfo, q)
 			episodeItem = Function(WebVideoItem(PlayVideo, title=RES_NAMES[q]), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
