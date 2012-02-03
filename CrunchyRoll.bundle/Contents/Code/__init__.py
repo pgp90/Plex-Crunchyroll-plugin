@@ -241,6 +241,7 @@ def CreatePrefs():
 	Prefs.Add(id='quality', type='enum', values=["SD", "480P", "720P", "1080P", "Highest Available"], default="Highest Available", label="Quality")
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
+	Preffs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
 	Prefs.Add(id='fanart', type='bool', default="true", label="Use Fanart.tv when possible?")
 
 
@@ -389,7 +390,7 @@ def PopularListMenu(sender,type=None):
 
 def GenreListMenu(sender,type=None,query=None):
 	startTime = Datetime.Now()
-	genreList = ANIME_GENRE_LIST if type==ANIME_LIST else DRAMA_GENRE_LIST
+	genreList = ANIME_GENRE_LIST if type==ANIME_TYPE else DRAMA_GENRE_LIST
 	if query is not None:
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
 		queryStr = genreList[query].replace('_', '%20')
@@ -602,6 +603,22 @@ def makeEpisodeItem(episode):
 
 	episodeItem = []
 	summary = makeEpisodeSummary(episode)
+	
+	# check the rating
+	if episode['rating'] and episode['rating'] > 4: # adult supervision from 5 up
+		if Prefs['hideMature'] is True:
+			episodeItem = Function(DirectoryItem(
+				adultWarning,
+				title = episode['title'],
+				subtitle = "Season %s"%episode['season'],
+				summary = summary,
+				thumb = Function(getThumb,url=episode['thumb']),
+				art=Function(getArt,url=getEpisodeArt(episode))
+				),
+				rating = episode['rating']
+			)
+			return episodeItem
+			
 	if giveChoice:
 		episodeItem = Function(
 			PopupDirectoryItem(
@@ -631,7 +648,9 @@ def makeEpisodeItem(episode):
 		)
 	return episodeItem
 
-
+def adultWarning(sender, rating=5):
+	return MessageContainer("Adult Content", "Cannot play mature content unless you change your preferences.")
+	
 def makeEpisodeSummary(episode):
 	summary = ""
 	if episode['publisher'] != '':
@@ -704,6 +723,8 @@ def getVideoUrl(videoInfo, resolution):
 	"""
 
 	url = videoInfo['baseUrl']+"?p" + str(resolution) + "=1"
+	# we always skip adult filtering (it's done in the presentation code before we reach here)
+	url = url + "&skip_wall=1"
 	url = url + ("&t=0" if Prefs['restart'] == 'Restart' else "")
 	url = url + "&small="+("1" if videoInfo['small'] is True else "0")
 	url = url + "&wide="+("1" if videoInfo['wide'] is True or JUST_USE_WIDE is True else "0")

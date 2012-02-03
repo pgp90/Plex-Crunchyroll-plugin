@@ -348,6 +348,20 @@ def getEpisodeListFromFeed(feed):
 						except:
 							season = None
 							hasSeasons = False
+						try:
+							rating = item.xpath("../rating")[0].text
+							Log.Debug(rating)
+							
+							# see http://www.classify.org/safesurf/
+							# just pluck the age value from text that looks like:
+							# (PICS-1.1 &quot;http://www.classify.org/safesurf/&quot; l r (SS~~000 5))
+							ageLimit = re.sub(r'(.*\(SS~~\d{3}\s+)(\d)(\).*)', r'\2', rating)
+							Log.Debug(ageLimit)							
+							rating = int(ageLimit) # we don't care about the categories
+							
+						except (ValueError, IndexError, TypeError):
+							rating = None
+							
 						mediaType = item.xpath("./media:category", namespaces=PLUGIN_NAMESPACE)[0].get('label')
 						episode = {
 							"title": title,
@@ -361,7 +375,8 @@ def getEpisodeListFromFeed(feed):
 							"publisher": publisher,
 							"season": season,
 							"keywords": keywords,
-							"type": mediaType
+							"type": mediaType,
+							"rating": rating
 						}
 						Dict['episodes'][str(mediaId)] = episode
 					else:

@@ -35,6 +35,12 @@
 		"default": "Restart"
 	},
 	{
+		"id": "hideMature",
+		"type": "bool",
+		"label": "Hide mature content?",
+		"default": "true"
+	},
+	{
 		"id": "fanart",
 		"type": "bool",
 		"label": "Use Fanart.tv when possible?",
