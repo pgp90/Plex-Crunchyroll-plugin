@@ -17,8 +17,8 @@
 		"id": "quality",
 		"type": "enum",
 		"label": "Quality",
-		"values": ["SD", "480P", "720P", "Highest Avalible", "Ask"],
-		"default": "Highest Avalible"
+		"values": ["SD", "480P", "720P", "Highest Available", "Ask"],
+		"default": "Highest Available"
 	},
 	{
 		"id": "thumb_quality",

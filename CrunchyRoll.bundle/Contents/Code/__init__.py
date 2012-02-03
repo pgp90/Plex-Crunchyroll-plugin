@@ -26,10 +26,11 @@ PREMIUM_TYPE_DRAMA = '4'
 ANIME_TYPE = "Anime"
 DRAMA_TYPE = "Drama"
 
-# NOTE: number 22 for 1080P is a bogus number created by me (Jeremy)
-# as a hack since crunchyroll doesn't even list these numbers anymore
 
-RES_NAMES = {'12':'SD', '20':'480P', '21':'720P', '22':'1080P'}
+Boxee2Resolution = {'12':360, '20':480, '21':720}
+Resolution2Quality = {360:"SD", 480: "480P", 720: "720P", 1080: "1080P"}
+# NOTE: this is also in scrapper.py
+Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
 
 ANIME_GENRE_LIST = {
 	'Action':'action',
@@ -201,10 +202,8 @@ def Logout():
 
 
 def LoginNotBlank():
-	r = False
-	if Prefs['username'] is not None and Prefs['password'] is not None:
-		r = True
-	return r
+	if Prefs['username'] and Prefs['password']: return True
+	return False
 
 
 def isPremium(epType):
@@ -212,19 +211,6 @@ def isPremium(epType):
 
 
 import scrapper, tvdbscrapper
-
-def IsWide(mediaId):
-	try:
-		url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
-		html = HTML.ElementFromURL(url, cacheTime=3600)
-		width = html.xpath("//stream_info/metadata/width")[0].text
-		height = html.xpath("//stream_info/metadata/height")[0].text
-		ratio = float(width)/float(height)
-		wide = (ratio > 1.5)
-	except:
-		wide = False
-	return wide
-
 
 def Start():
 	global GlobalWasLoggedIn
@@ -252,7 +238,7 @@ def Start():
 def CreatePrefs():
 	Prefs.Add(id='loginemail', type='text', default="", label='Login Email')
 	Prefs.Add(id='password', type='text', default="", label='Password', option='hidden')
-	Prefs.Add(id='quality', type='enum', values=["SD", "480P", "720P", "Highest Avalible"], default="Highest Avalible", label="Quality")
+	Prefs.Add(id='quality', type='enum', values=["SD", "480P", "720P", "1080P", "Highest Available"], default="Highest Available", label="Quality")
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
 	Prefs.Add(id='fanart', type='bool', default="true", label="Use Fanart.tv when possible?")
@@ -343,7 +329,7 @@ def TopMenu():
 	dir.Append(Function(DirectoryItem(Menu,"Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
 	if LoggedIn() is True:
 		dir.Append(Function(DirectoryItem(QueueMenu,"Browse Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
-	dir.Append(PrefsItem(L('Preferences'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
+	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
 	#dir.nocache = 1
 	
 	return dir
@@ -429,23 +415,32 @@ def makeSeriesItem(series):
 	art = series['art']
 	if art is None: art = ""
 	url = scrapper.seriesTitleToUrl(series['title'])
-	seriesItem = Function(
-		PopupDirectoryItem(
-			SeriesPopupMenu,
-			series['title'],
+	artFetcher = Function(getArt,url=art)
+
+	seriesItem =  Function(
+		DirectoryItem(
+			SeriesMenu, 
+			title = series['title'],
 			summary=series['description'].encode("utf-8"),
 			thumb=Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
-			art=Function(getArt,url=art,tvdbId=series['tvdbId'])
-		),
-		url=url,
-		seriesId=series['seriesId']
-	)
+			art = Function(getArt,url=art,tvdbId=series['tvdbId'])
+		), seriesId=series['seriesId'])
 	return seriesItem
-
-
+		
 def SeriesMenu(sender,seriesId=None):
 	startTime = Datetime.Now()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
+	
+	if LoggedIn():
+		dir.Append(
+			Function(PopupDirectoryItem(
+					QueueChangePopupMenu, 
+					title="Queue...", 
+					summary="Add or remove this series from your queue."
+				), 
+				seriesId=seriesId )
+			)
+
 	episodes = scrapper.getEpisodeListForSeries(seriesId)
 	if episodes['useSeasons'] is True:
 		seasonNums = episodes['seasons'].keys()
@@ -483,6 +478,7 @@ def makeSeasonItem(season):
 		if artUrl is not None:
 			art = Function(getArt,url=artUrl)
 	seasonItem = Function(
+
 		DirectoryItem(
 			SeasonMenu,
 			season['title'],
@@ -624,14 +620,43 @@ def removeFromQueue(sender,seriesId):
 	Log.Debug("remove response: %s"%response)
 	return MessageContainer("Success",'Removed from Queue')
 
-def addToQueue(sender,mediaId,url):
+def addToQueue(sender,seriesId,url=None):
+	#FIXME url not needed?
 	Log.Debug("add mediaid: %s"%seriesId)
 	response = makeAPIRequest2("req=RpcApiUserQueue_Add&group_id=%s"%seriesId)
 	Log.Debug("add response: %s"%response)
 	return MessageContainer("Success",'Added to Queue')
 
+def QueueChangePopupMenu(sender, seriesId):
+	"""
+	Popup a Menu asking user if she wants to
+	add or remove this series from her queue
+	"""
+	dir = MediaContainer(title1="Queue",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
+	if LoggedIn():
+		queueList = scrapper.getQueueList()
+		inQ = False
+		for item in queueList:
+			if item['seriesId'] == seriesId:
+				inQ = True
+			break
+		
+		if inQ:
+			dir.Append(
+				Function(DirectoryItem(removeFromQueue, title="Remove From Queue", summary="Remove this series from your queue"), seriesId=seriesId)
+			)
+		else:
+			dir.Append(
+				Function(DirectoryItem(addToQueue, title="Add To Queue", summary="Add this series to your queue" ), seriesId=seriesId)
+			)
+	dir.Append(Function(DirectoryItem(doCancel, title="Cancel")) )
+	return dir
+	
+def doCancel(sender):
+	return None
 
 def SeriesPopupMenu(sender, url, seriesId):
+	#FIXME: Now unused
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Episodes"), seriesId=seriesId)
 	AddSeries = Function(DirectoryItem(addToQueue, title="Add To queue"), seriesId=seriesId, url=url.replace(".rss",""))
@@ -641,9 +666,14 @@ def SeriesPopupMenu(sender, url, seriesId):
 	return dir
 
 
-def getVideoUrl(videoInfo, quality):
-	url = videoInfo['baseUrl']+"?p"+VIDEO_QUALITY[RES_NAMES[quality]]+"=1"
-	Log.Debug("pref: %s"%Prefs['restart'])
+def getVideoUrl(videoInfo, resolution):
+	"""
+	construct a URL to display at resolution based on videoInfo
+	without checking for coherence to what the site's got
+	or if the resolution is valid
+	"""
+
+	url = videoInfo['baseUrl']+"?p" + str(resolution) + "=1"
 	url = url + ("&t=0" if Prefs['restart'] == 'Restart' else "")
 	url = url + "&small="+("1" if videoInfo['small'] is True else "0")
 	url = url + "&wide="+("1" if videoInfo['wide'] is True or JUST_USE_WIDE is True else "0")
@@ -654,7 +684,7 @@ def playVideoMenu(sender, episode):
 	startTime = Datetime.Now()
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	if len(episode['availableResolutions']) == 0:
-		episode['availableResolutions'] = scrapper.getAvailResFromPage(episode['link'], ['12'])
+		episode['availableResolutions'] = scrapper.getAvailResFromPage(episode['link'])
 		
 		# FIXME I guess it's better to have something than nothing? It was giving Key error
 		# on episode number
@@ -668,12 +698,13 @@ def playVideoMenu(sender, episode):
 	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
 			videoUrl = getVideoUrl(videoInfo, q)
-			episodeItem = Function(WebVideoItem(PlayVideo, title=RES_NAMES[q]), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
+			episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q]), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
 			dir.Append(episodeItem)
 	else:
 		prefRes = scrapper.getPrefRes(episode['availableResolutions'])
 		videoUrl = getVideoUrl(videoInfo, prefRes)
-		episodeItem = Function(WebVideoItem(PlayVideo, title="Play"), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
+		buttonText = "Play at %sp" % str(prefRes)
+		episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
 		dir.Append(episodeItem)
 	dtime = Datetime.Now()-startTime
 	Log.Debug("playVideoMenu (%s) execution time: %s"%(episode['title'], dtime))

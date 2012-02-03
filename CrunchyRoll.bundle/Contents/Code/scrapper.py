@@ -10,6 +10,10 @@ SERIES_TITLE_URL_FIX = {
 "goshuushosama-ninomiya-kun":"good-luck-ninomiya-kun"
 }
 
+Boxee2Resolution = {'12':360, '20':480, '21':720}
+Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
+
+
 def getQueueList():
 	queueURL = BASE_URL+"/queue"
 	queueHtml = HTML.ElementFromURL(queueURL,cacheTime=QUEUE_LIST_CACHE_TIME)
@@ -338,7 +342,7 @@ def getEpisodeListFromFeed(feed):
 						thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 						try: keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
 						except: keywords = ""
-						availableResolutions = []#getAvailResFromPage(link, ['12'])
+						availableResolutions = [] # this isn't available with rss script (it is with boxee_feeds)
 						try:
 							season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
 						except:
@@ -414,11 +418,17 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 	width = html.xpath("//stream_info/metadata/width")[0].text
 	height = html.xpath("//stream_info/metadata/height")[0].text
 	
-	try: episodeInfo['duration'] = int(float(html.xpath("//stream_info/metadata/duration")[0].text)*1000)
-	except: episodeInfo['duration'] = 0
+	d = html.xpath("//stream_info/metadata/duration")
+	if len(d):
+		try: episodeInfo['duration'] = int(float(d)*1000)
+		except (ValueError, TypeError): episodeInfo['duration'] = 0
+	else: episodeInfo['duration'] = 0
 	
-	try: episodeInfo['episodeNum'] = int(html.xpath("//media_metadata/episode_number")[0].text)
-	except: episodeInfo['episodeNum'] = 0
+	n = html.xpath("//media_metadata/episode_number")
+	if len(n):
+		try: episodeInfo['episodeNum'] = int(html.xpath("//media_metadata/episode_number")[0].text)
+		except (ValueError, TypeError): episodeInfo['episodeNum'] = 0
+	else: episodeInfo['duration'] = 0
 	
 	ratio = float(width)/float(height)
 	episodeInfo['wide'] = (ratio > 1.5)
@@ -426,60 +436,68 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 
 
 
-def getAvailResFromPage(url, availableRes):
-	availRes = ['12']
+def getAvailResFromPage(url):
+	"""
+	given an url of a page where video is watched,
+	return a list of integers of available heights.
+	
+	If user is a guest, just return 360, which
+	is all they get ;-)
+	"""
+	if not Prefs['username'] or not Prefs['password']:
+		return [360]
+	
+	availRes = [360]
 	link = url.replace(BASE_URL, "")
-	t1 = Datetime.Now()
 	req = HTTP.Request(url=url, immediate=True, cacheTime=3600*24)
 	html = HTML.ElementFromString(req)
-	t2 = Datetime.Now()
+
 	try: small = (len(html.xpath("//a[@href='/freetrial/anime/?from=showmedia_noads']")) > 0)
 	except: small = False
-	t3 = Datetime.Now()
+
 	if small is False:
 		try:
 			if len(html.xpath("//a[@token='showmedia.480p']")) > 0:
-				availRes.append("20")
+				availRes.append(480)
 			if len(html.xpath("//a[@token='showmedia.720p']")) > 0:
-				availRes.append("21")			
-			# HACKTASTIC: just use 22 as an enum for 1080p until crunchyroll
-			# decides to start using it			
+				availRes.append(720)		
 			if len(html.xpath("//a[@token='showmedia.1080p']")) > 0:
-				availRes.append("22")
+				availRes.append(1080)
 
 		except Exception,arg:
 			Log.Error("####getAvalResFromPage() we got ourselves an exception:")
-			Log.Error(Exception)
-			Log.Error(repr(arg))
+			Log.Error(repr(Exception) + repr(arg))
 
-	t4 = Datetime.Now()
-	for a in availableRes:
-		if a not in availRes: availRes.append(a)
-
-	t5 = Datetime.Now()
-
-	Log.Debug("getAvailResFromPage req time: %s"%(t2-t1))
-	Log.Debug("getAvailResFromPage small time: %s"%(t3-t2))
-	Log.Debug("getAvailResFromPage inspect time: %s"%(t4-t3))
-	Log.Debug("getAvailResFromPage sort time: %s"%(t5-t4))
-	
 	return availRes
 
 
 def getPrefRes(availRes):
-	availResNames = []
-	for resN in availRes:
-		availResNames.append(RES_NAMES[resN])
-	if Prefs['quality'] == "Highest Avalible":
-		resName = availResNames[len(availRes)-1]
-	else:
-		if Prefs['quality'] in availResNames:
-			resName = Prefs['quality']
-		else:
-			resName = availResNames[len(availRes)-1]
-	invResNames = {'SD':"12", '480P':"20", '720P':"21"}
-	return invResNames[resName]
 
+	preferredRes = 360
+
+	if Prefs['quality'] == "Ask":
+		#bwaaat? shouldn't call this
+		Log.Error("####Can't determine preferred res because user wants to choose!")
+	else:
+		# the assumption is that the user chooses a resolution
+		# (instead of "highest available") to control bandwidth/cpu use
+		# so pick the highest res that is <= user's selection
+		preferredRes = Quality2Resolution[Prefs['quality']]	
+	
+	if len(availRes):
+		reslist = availRes
+
+		# lowest first
+		reslist.sort()
+		
+		chosenRes = 360 # in case reslist is empty
+		for res in reslist:
+			if res <= preferredRes:
+				chosenRes = res
+			else:
+				break
+	
+	return chosenRes
 
 def getEpInfoFromLink(link):
 	mediaId = getVideoMediaIdFromLink(link)
