@@ -543,7 +543,7 @@ def QueueItemMenu(sender,queueItemInfo):
 	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
 	if queueItemInfo['epToPlay'] is not None:
 		nextEp = scrapper.getEpInfoFromLink(queueItemInfo['epToPlay'])
-		PlayNext = Function(
+		PlayNext_old = Function(
 			PopupDirectoryItem(
 				playVideoMenu,
 				title="Play Next Episode",
@@ -554,6 +554,7 @@ def QueueItemMenu(sender,queueItemInfo):
 			),
 			episode=nextEp
 		)
+		PlayNext = makeEpisodeItem(nextEp)
 		dir.Append(PlayNext)
 	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueItemInfo['seriesId'])
 	dir.Append(ViewSeries)
@@ -584,18 +585,50 @@ def getEpisodeArt(episode):
 
 
 def makeEpisodeItem(episode):
+	"""
+	Create a directory item that will play the video.
+	If the user is logged in and has requested to choose resolution,
+	this will lead to a popup menu. In all other cases, the user
+	need not make a choice, so go straight to the video (with a little
+	URL munging beforehand in PlayVideo())
+	"""
+	giveChoice = True
+	if Prefs['quality'] != "Ask":
+		giveChoice = False
+	elif not Prefs['password'] or not Prefs['username']:
+		giveChoice = False
+	elif not LoggedIn():
+		giveChoice = False
+
+	episodeItem = []
 	summary = makeEpisodeSummary(episode)
-	episodeItem = Function(
-		PopupDirectoryItem(
-			playVideoMenu,
-			title = episode['title'],
-			subtitle = "Season %s"%episode['season'],
-			summary = summary,
-			thumb = Function(getThumb,url=episode['thumb']),
-			art=Function(getArt,url=getEpisodeArt(episode))
-		),
-		episode=episode
-	)
+	if giveChoice:
+		episodeItem = Function(
+			PopupDirectoryItem(
+				playVideoMenu,
+				title = episode['title'],
+				subtitle = "Season %s"%episode['season'],
+				summary = summary,
+				thumb = Function(getThumb,url=episode['thumb']),
+				art=Function(getArt,url=getEpisodeArt(episode))
+			),
+			episode=episode
+		)
+	else:
+		episodeItem = Function(
+			WebVideoItem(PlayVideo, 
+				title = episode['title'],
+				subtitle = "Season %s"%episode['season'],
+				summary = summary,
+				thumb = Function(getThumb,url=episode['thumb']),
+				art=Function(getArt,url=getEpisodeArt(episode))
+			), 
+				# sadly, duration requires extra fetch, so it's not good to 
+				# do per episode
+				url=episode['link'], title=episode['title'], duration=0, summary=summary,
+				mediaId = episode['mediaId'],
+				modifyUrl=True
+		)
 	return episodeItem
 
 
@@ -649,11 +682,8 @@ def QueueChangePopupMenu(sender, seriesId):
 			dir.Append(
 				Function(DirectoryItem(addToQueue, title="Add To Queue", summary="Add this series to your queue" ), seriesId=seriesId)
 			)
-	dir.Append(Function(DirectoryItem(doCancel, title="Cancel")) )
 	return dir
 	
-def doCancel(sender):
-	return None
 
 def SeriesPopupMenu(sender, url, seriesId):
 	#FIXME: Now unused
@@ -693,7 +723,7 @@ def playVideoMenu(sender, episode):
 	
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
-	videoInfo['small'] = (GlobalWasLoggedIn is True and isPremium(episode['type']) is True)
+	videoInfo['small'] = not (GlobalWasLoggedIn is True and isPremium(episode['type']) is True)
 
 	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
@@ -711,8 +741,18 @@ def playVideoMenu(sender, episode):
 	return dir
 
 
-def PlayVideo(sender, url, title, duration, summary = None):
-	return Redirect(WebVideoItem(url, title = title, duration = duration, summary = summary))
+def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+	theUrl = url
+	resolutions = scrapper.getAvailResFromPage(url)
+	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
+	duration = vidInfo['duration'] # need this because duration isn't known until now
+	
+	if modifyUrl:
+		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
+		bestRes = scrapper.getPrefRes(resolutions)
+		theUrl = getVideoUrl(vidInfo, bestRes)
+	
+	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
 
 def listElt(url):

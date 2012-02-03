@@ -415,9 +415,14 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 	episodeInfo = {}
 	episodeInfo['baseUrl'] = baseUrl
 	episodeInfo['availRes'] = availRes
-	width = html.xpath("//stream_info/metadata/width")[0].text
-	height = html.xpath("//stream_info/metadata/height")[0].text
-	
+	# width and height may not exist or may be bogus (Bleach eps 358)
+	try:
+		width = float(html.xpath("//stream_info/metadata/width")[0].text)
+		height = float(html.xpath("//stream_info/metadata/height")[0].text)
+		ratio = width/height
+	except (IndexError, ValueError, TypeError):
+		ratio = 1
+		
 	d = html.xpath("//stream_info/metadata/duration")
 	if len(d):
 		try: episodeInfo['duration'] = int(float(d)*1000)
@@ -430,7 +435,6 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 		except (ValueError, TypeError): episodeInfo['episodeNum'] = 0
 	else: episodeInfo['duration'] = 0
 	
-	ratio = float(width)/float(height)
 	episodeInfo['wide'] = (ratio > 1.5)
 	return episodeInfo
 
@@ -444,6 +448,7 @@ def getAvailResFromPage(url):
 	If user is a guest, just return 360, which
 	is all they get ;-)
 	"""
+	
 	if not Prefs['username'] or not Prefs['password']:
 		return [360]
 	
@@ -467,7 +472,9 @@ def getAvailResFromPage(url):
 		except Exception,arg:
 			Log.Error("####getAvalResFromPage() we got ourselves an exception:")
 			Log.Error(repr(Exception) + repr(arg))
-
+	
+	Log.Debug("##############AVAILABLE RES:")
+	Log.Debug(availRes)
 	return availRes
 
 

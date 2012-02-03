@@ -17,7 +17,7 @@
 		"id": "quality",
 		"type": "enum",
 		"label": "Quality",
-		"values": ["SD", "480P", "720P", "Highest Available", "Ask"],
+		"values": ["SD", "480P", "720P", "1080P", "Highest Available", "Ask"],
 		"default": "Highest Available"
 	},
 	{
