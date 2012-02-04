@@ -499,6 +499,9 @@ def getAvailResFromPage(url):
 
 def getPrefRes(availRes):
 
+	if not Prefs['username'] or not Prefs['password']:
+		return 360 # that's all you get
+		
 	preferredRes = 360
 
 	if Prefs['quality'] == "Ask":

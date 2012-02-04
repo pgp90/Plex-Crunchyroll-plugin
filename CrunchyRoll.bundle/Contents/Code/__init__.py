@@ -155,7 +155,11 @@ def getArt(url,tvdbId=None):
 				ret = DataObject(data, 'image/jpeg')
 			elif url.endswith(".png"):
 				ret = DataObject(data, 'image/png')
-		except: pass
+		except Exception,arg: 
+			Log.Debug("####Exception when grabbing art at '%s'" % url)
+			Log.Debug(repr(Exception) + repr(arg))
+		
+
 	if ret is None:
 		req = urllib2.Request("http://127.0.0.1:32400"+R(CRUNCHYROLL_ART))
 		return DataObject(urllib2.urlopen(req).read(), 'image/jpeg')
@@ -439,7 +443,6 @@ def makeSeriesItem(series):
 	art = series['art']
 	if art is None: art = ""
 	url = scrapper.seriesTitleToUrl(series['title'])
-	artFetcher = Function(getArt,url=art)
 
 	seriesItem =  Function(
 		DirectoryItem(
@@ -798,27 +801,28 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 	# theUrl = theUrl + "&small=1"
 	Log.Debug("##########final URL is '%s'" % theUrl)
 
-	# grab the .swf file directly
 	DIRECT_GRAB = False
+
+	# grab the .swf file directly
 	# example element:
 	#<link rel="video_src" href="http://www.crunchyroll.com/swf/vidplayer.swf?config_url=http%3A%2F%2Fwww.crunchyroll.com%2Fxml%2F%3Freq%3DRpcApiVideoPlayer_GetStandardConfig%26media_id%3D591521%26video_format%3D0%26video_quality%3D0%26auto_play%3D1%26click_through%3D1" />
 
-	req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	
-	#Log.Debug("###########")
-	#Log.Debug(req.content)
-
-	match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
-	if not match:
-		# bad news
-		Log.Error("###########Could not find direct swf link, trying hail mary pass...")
-		directURL = theUrl
-	else:
-		directURL = match.group(2)
-
+	
 	if DIRECT_GRAB:
-		return Redirect(WebVideoItem(directURL, title = title, duration = duration, summary = summary))
-	else:
-		return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
+		if LoggedIn(): # only premium users should grab directly
+			req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
+			#Log.Debug("###########")
+			#Log.Debug(req.content)
+	
+			match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+			if not match:
+				# bad news
+				Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+				theUrl = theUrl
+			else:
+				theUrl = match.group(2)
+
+	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
 
 def listElt(url):
