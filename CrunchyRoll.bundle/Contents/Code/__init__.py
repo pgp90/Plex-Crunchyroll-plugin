@@ -57,7 +57,21 @@ ANIME_GENRE_LIST = {
 	'Tournament':'tournament'
 }
 
-DRAMA_GENRE_LIST = {}
+DRAMA_GENRE_LIST = {
+	'Chinese':'chinese',
+	'Japanese':'japanese',
+	'Korean':'korean',
+	'Action':'action',
+	'Comedy':'comedy',
+	'Crime':'crime',
+	'Family': 'family',
+	'Food':'food',
+	'Historical':'historical',
+	'Horror':'horror',
+	# 'Martial Arts': 'martial_arts', # broken :-(
+	'Romance':'romance',
+	'Thriller':'thriller'
+	}
 
 JUST_USE_WIDE = False
 CHECK_PLAYER = False
@@ -344,10 +358,13 @@ def Menu(sender,type=None):
 		
 	dir = MediaContainer(disabledViewModes=["coverflow"], title1=sender.title1)
 	dir.Append(Function(DirectoryItem(AlphaListMenu,"All %s" % type, thumb=R(all_icon)), type=type))
-	if type=="Anime":
-		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular %s" % type, thumb=R(all_icon)), type=type))
+	if type==ANIME_TYPE:
+		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular Anime" , thumb=R(all_icon)), type=type))
 		#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent %s" % type, thumb=R(all_icon)), type=type))
-		dir.Append(Function(DirectoryItem(GenreListMenu,"%s by Genres" % type, thumb=R(CRUNCHYROLL_ICON)), type=type))
+		dir.Append(Function(DirectoryItem(GenreListMenu,"Anime by Genres", thumb=R(CRUNCHYROLL_ICON)), type=type))
+	elif type==DRAMA_TYPE:
+		dir.Append(Function(DirectoryItem(GenreListMenu,"Drama by Genres", thumb=R(CRUNCHYROLL_ICON)), type=type))
+	
 	return dir
 
 
@@ -389,12 +406,18 @@ def PopularListMenu(sender,type=None):
 
 
 def GenreListMenu(sender,type=None,query=None):
+	#example: http://www.crunchyroll.com/boxee_feeds/genre_drama_romance
 	startTime = Datetime.Now()
 	genreList = ANIME_GENRE_LIST if type==ANIME_TYPE else DRAMA_GENRE_LIST
 	if query is not None:
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
-		queryStr = genreList[query].replace('_', '%20')
-		feed = "anime_withtag/" + queryStr
+		if type == ANIME_TYPE:
+			queryStr = genreList[query].replace('_', '%20')
+			feed = "anime_withtag/" + queryStr
+		else:
+			queryStr = genreList[query]
+			feed = "genre_drama_" + queryStr
+			
 		seriesList = scrapper.getSeriesListFromFeed(feed)
 		for series in seriesList:
 			dir.Append(makeSeriesItem(series))
@@ -772,7 +795,8 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
 		bestRes = scrapper.getPrefRes(resolutions)
 		theUrl = getVideoUrl(vidInfo, bestRes)
-	
+	# theUrl = theUrl + "&small=1"
+	Log.Debug("##########final URL is '%s'" % theUrl)
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
 

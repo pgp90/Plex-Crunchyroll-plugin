@@ -471,8 +471,12 @@ def getAvailResFromPage(url):
 	link = url.replace(BASE_URL, "")
 	req = HTTP.Request(url=url, immediate=True, cacheTime=3600*24)
 	html = HTML.ElementFromString(req)
+	
+	try: 
+		small = (str(req).find("href=\"/freetrial/") >=0)
+		if small:
+			Log.Debug("#######HEY, WE ARE NOT SIGNED IN")
 
-	try: small = (len(html.xpath("//a[@href='/freetrial/anime/?from=showmedia_noads']")) > 0)
 	except: small = False
 
 	if small is False:
