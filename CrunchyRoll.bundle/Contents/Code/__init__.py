@@ -797,7 +797,28 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 		theUrl = getVideoUrl(vidInfo, bestRes)
 	# theUrl = theUrl + "&small=1"
 	Log.Debug("##########final URL is '%s'" % theUrl)
-	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
+
+	# grab the .swf file directly
+	DIRECT_GRAB = False
+	# example element:
+	#<link rel="video_src" href="http://www.crunchyroll.com/swf/vidplayer.swf?config_url=http%3A%2F%2Fwww.crunchyroll.com%2Fxml%2F%3Freq%3DRpcApiVideoPlayer_GetStandardConfig%26media_id%3D591521%26video_format%3D0%26video_quality%3D0%26auto_play%3D1%26click_through%3D1" />
+
+	req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	
+	#Log.Debug("###########")
+	#Log.Debug(req.content)
+
+	match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+	if not match:
+		# bad news
+		Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+		directURL = theUrl
+	else:
+		directURL = match.group(2)
+
+	if DIRECT_GRAB:
+		return Redirect(WebVideoItem(directURL, title = title, duration = duration, summary = summary))
+	else:
+		return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
 
 def listElt(url):

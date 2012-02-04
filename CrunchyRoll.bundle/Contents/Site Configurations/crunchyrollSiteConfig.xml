@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <site site="http://www.crunchyroll.com" 
-	plugin="http://static.lln.crunchyroll.com/flash/.*/StandardVideoPlayer.swf" 
+	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 	initialState="waiting_for_flash_to_load" 
 	version="1.0"
 	identifier="com.plexapp.plugins.CrunchyRoll">
