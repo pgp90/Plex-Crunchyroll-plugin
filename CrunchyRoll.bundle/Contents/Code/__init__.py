@@ -16,7 +16,7 @@ QUEUE_ICON                   = CRUNCHYROLL_ICON#'icon-queue.png'
 PREFS_ICON                   = 'icon-prefs.png'
 
 FEED_BASE_URL                = "http://www.crunchyroll.com/boxee_feeds/"
-
+LATEST_SHOWS_RSS             = "http://feeds.feedburner.com/crunchyroll/rss"
 THUMB_QUALITY                = {"Low":"_medium","Medium":"_large","High":"_full"}
 VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720", "1080P":"1080"}
 
@@ -26,6 +26,9 @@ PREMIUM_TYPE_DRAMA = '4'
 ANIME_TYPE = "Anime"
 DRAMA_TYPE = "Drama"
 
+# these are lengthy fetches which may cause timeouts, so try to precache, Which (of course)
+# doesn't allow setting a timeout value. Blech.
+PRECACHE_URLS = ["http://www.crunchyroll.com/bleach.rss", "http://www.crunchyroll.com/naruto-shippuden.rss"]
 
 Boxee2Resolution = {'12':360, '20':480, '21':720}
 Resolution2Quality = {360:"SD", 480: "480P", 720: "720P", 1080: "1080P"}
@@ -76,11 +79,18 @@ DRAMA_GENRE_LIST = {
 JUST_USE_WIDE = False
 CHECK_PLAYER = False
 SPLIT_LONG_LIST = True
+DIRECT_GRAB = False # grab the .swf file directly (buggy, but higher res)
+
+# at the moment Boxee streams only display at 720p. SD content is upscaled, 1080p is downscaled.
+# however, this is still a higher res than you'll get with the webkit, and the stream
+# is dumb easy to write a site config for (one config for all content)
+USE_BOXEE_STREAM = True 
+
 
 HTTP.CacheTime = 3600
 HTTP.Headers["User-agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
 HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
-HTTP.ClearCookies()
+#HTTP.ClearCookies() #OMG this one line took hours off of my life
 
 API_URL = "://www.crunchyroll.com/ajax/"
 API_HEADERS = {
@@ -97,6 +107,45 @@ API_HEADERS = {
 
 import fanartScrapper
 import urllib2
+
+LOGIN_GRACE = 1800
+loggedInSince = 0.0
+failedLoginCount = 0
+AnimePremium = False
+DramaPremium = False
+
+def Start():
+
+	Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
+	Plugin.AddViewGroup("List", viewMode = "List", mediaType = "Reverse Engineer the kinds of values allowed here someday")
+	MediaContainer.art = R(CRUNCHYROLL_ART)
+	MediaContainer.title1 = "CrunchyRoll"
+	MediaContainer.viewGroup = "List"
+	DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
+	
+		
+	#LoginAtStart()
+	if 'episodes' not in Dict:
+		Dict['episodes'] = {}
+	if 'series' not in Dict:
+		Dict['series'] = {}
+	if 'fanart' not in Dict:
+		Dict['fanart'] = {}
+	if 1==0:
+		testCacheAll()
+	if False is True:
+		scrapper.cacheAllSeries()
+		listAllEpTitles()
+
+	if False: # doesn't work because cache won't accept a timeout value
+		for cacheThis in PRECACHE_URLS:
+			HTTP.PreCache(cacheThis, cacheTime=60*60*10)
+		
+
+def debugDict():
+	for key in Dict:
+		Log.Debug("####### %s" % repr(key))
+		Log.Debug(Dict[key])
 
 def getThumb(url,tvdbId=None):
 	ret = None
@@ -207,10 +256,13 @@ def makeAPIRequest2(data,referer=None):
 
 
 def LoginAtStart():
+	return Login(force=True)
+	
+def LoginAtStart_old():
 	global GlobalWasLoggedIn
 	global AnimePremium
 	global DramaPremium
-	HTTP.ClearCookies()
+	#HTTP.ClearCookies() # FIXME put this back in after debugging
 	if LoginNotBlank():
 		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
 		response = makeAPIRequest(data)
@@ -223,19 +275,123 @@ def LoginAtStart():
 	return GlobalWasLoggedIn
 
 
-def LoggedIn():
+def LoggedIn_old():
 	return GlobalWasLoggedIn
 
 
-def Login():
+def Login_old():
 	if LoginNotBlank():
 		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
 		response = makeAPIRequest(data)
 
+def LoggedIn():
+	"""
+	Immediately check if user is logged in, and change global values to reflect status. 
+	DO NOT USE THIS A LOT
+	"""
+	global AnimePremium, DramaPremium
+	req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", immediate=True, cacheTime=0)
+	authorized = False
+	if "Profile Information" in req.content:
+		authorized = True
+	
+	if authorized:
+		if "Anime member!" in req.content:
+			AnimePremium = True
+		if "Drama member!" in req.content: #FIXME untested!
+			DramaPremium = True
+	return authorized
+
+
+def Login(force=False):
+	"""
+	Log the user in if needed. Returns False on authentication failure,
+	otherwise True. Feel free to call this anytime you think logging in
+	would be useful -- it assumes you will do so.
+
+	Guest users don't log in, therefore this will always return true for them.
+	See IsPremium() if you want to check permissions. or LoggedIn() if you 
+	want to fetch a web page NOW (use conservatively!)
+	"""
+	global loggedInSince
+	global failedLoginCount
+	if Prefs['username'] and Prefs['password']:
+
+		# fifteen minutes is reasonable.
+		# this also prevents spamming server
+		if (force == False) and (time.time() - loggedInSince) < LOGIN_GRACE:
+			return True
+
+		Log.Debug("#########Well\n forced is %s and loggedInTime is %f" % (repr(force), time.time() - loggedInSince) )
+		if force: 
+			HTTP.ClearCookies()
+			loggedInSince = 0
+			failedLoginCount = 0
+
+		if not force and failedLoginCount > 2:
+			return False # Don't bash the server, just inform caller
+		
+		Log.Debug("#########checking log in")
+		if LoggedIn():
+			failedLoginCount = 0
+			loggedInSince = time.time()
+			return True
+		else:
+			Log.Debug("########THIS LOGIN FAILED, MUST LOG IN AGAIN")
+
+		# if we reach here, we must manually log in.
+		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
+		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
+		HTTP.Headers['Cookie'] = HTTP.CookiesForURL('https://www.crunchyroll.com/')
+
+		#check it
+		if LoggedIn():
+			loggedInSince = time.time()
+			failedLoginCount = 0
+			return True
+		else:
+			Log.Debug("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
+			Log.Debug("COOKIIEEEE:")
+			Log.Debug(HTTP.Headers['Cookie'])
+			Log.Debug("headers: %s" % req.headers)
+			Log.Debug("content: %s" % req.content)
+			failedLoginCount = failedLoginCount + 1
+			loggedInSince = 0
+			return False
+	else:
+		failedLoginCount = 0
+		return True # empty user is not authentication failure
+
+def isPremium(epType=None):
+	"""
+	return True if the user is logged in and has permissions to view extended content.
+	You will be able to pass ANIME_TYPE or DRAMA_TYPE to check specifically, although ATM it
+	doesn't work.
+	Passing type=None will return True if the user is logged in.
+	"""
+	global AnimePremium, DramaPremium, loggedInSince
+	Login()
+	if (time.time() - loggedInSince) < LOGIN_GRACE:
+		Log.Debug("#####we're in the login window")
+		if epType is None: return True
+
+		if epType is ANIME_TYPE and AnimePremium is True:
+			return True
+		elif epType is DRAMA_TYPE and DramaPremium is True:
+			return True
+		Log.Debug("#####BUT neither Anime nor Drama Premium is set!")
+
+		return False #FIXME actually this should be an exception
+
+	Log.Debug("####you're not in the login window, too bad. t = %f" % (time.time()-loggedInSince))
+	return False
 
 def Logout():
+	global loggedInSince, failedLoginCount
 	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
-	GlobalWasLoggedIn = False
+	failedLoginCount = 0
+	loggedInSince = 0
+
 
 
 def LoginNotBlank():
@@ -243,33 +399,11 @@ def LoginNotBlank():
 	return False
 
 
-def isPremium(epType):
-	return (epType is ANIME_TYPE and AnimePremium is True) or (epType is DRAMA_TYPE and DramaPremium is True)
 
 
 import scrapper, tvdbscrapper
 
-def Start():
-	global GlobalWasLoggedIn
-	GlobalWasLoggedIn = None
-	Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
-	#Plugin.AddViewGroup("List", viewMode = "List", mediType = )
-	MediaContainer.art = R(CRUNCHYROLL_ART)
-	MediaContainer.title1 = "CrunchyRoll"
-	#MediaContainer.viewGroup = "List"
-	#DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
-	LoginAtStart()
-	if 'episodes' not in Dict:
-		Dict['episodes'] = {}
-	if 'series' not in Dict:
-		Dict['series'] = {}
-	if 'fanart' not in Dict:
-		Dict['fanart'] = {}
-	if 1==0:
-		testCacheAll()
-	if False is True:
-		scrapper.cacheAllSeries()
-		listAllEpTitles()
+
 
 
 def CreatePrefs():
@@ -278,31 +412,32 @@ def CreatePrefs():
 	Prefs.Add(id='quality', type='enum', values=["SD", "480P", "720P", "1080P", "Highest Available"], default="Highest Available", label="Quality")
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
-	Preffs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
+	Prefs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
 	Prefs.Add(id='fanart', type='bool', default="false", label="Use Fanart.tv when possible?")
 
 
 def ValidatePrefs():
 	u = Prefs['username']
 	p = Prefs['password']
-	if GlobalWasLoggedIn:
-		Logout()
-	lf = LoginNotBlank()
-	if lf:
-		lv = LoginAtStart()
-		if lv is True:
-			mc = MessageContainer("Success", "Details have been saved.")
+	h = Prefs['quality']
+	if u and p:
+		loginSuccess = Login(force = True)
+		if not loginSuccess:
+			mc = MessageContainer("Login Failure",
+				"Failed to login, check your username and password, and that you've read your confirmation email."
+				)
+			return mc
 		else:
-			mc = MessageContainer("Error", "Could not login with the provided username and password.")
-	else:
-		if u is not None or p is not None:
-			if u is not None and p is None:
-				mc = MessageContainer("Error", "Username provided but no password.")
-			elif p is not None and u is None:
-				mc = MessageContainer("Error", "Password provided but no username.")
-		else:
-			mc = MessageContainer("Success", "Details have been saved.")
-	return mc
+			mc = MessageContainer("Success",
+				"Preferences Saved."
+				)
+			return mc
+
+	elif u or p:
+		mc = MessageContainer("Login Failure",
+			"Please specify both a username and a password."
+			)
+		return mc
 
 
 def testCacheAll():
@@ -358,20 +493,38 @@ def listThumbs2():
 
 
 def TopMenu():
-	global GlobalWasLoggedIn
+	Login()
+
 	if CHECK_PLAYER is True:
 		scrapper.returnPlayer()
 	Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	dir.Append(Function(DirectoryItem(Menu,"Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
 	dir.Append(Function(DirectoryItem(Menu,"Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
-	if LoggedIn() is True:
+	if isPremium():
 		dir.Append(Function(DirectoryItem(QueueMenu,"Browse Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
 	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
+	dir.Append(Function(DirectoryItem(DumpInfo, "Dump info to console")) )
+	dir.Append(Function(DirectoryItem(ClearAllData, "Clear all data")) )
 	#dir.nocache = 1
 	
 	return dir
 
+def DumpInfo(sender):
+	debugDict()
+	return MessageContainer("Whew", "Thanks for dumping on me.")
+
+def ClearAllData(sender):
+	HTTP.ClearCookies()
+	HTTP.ClearCache()
+	Dict.Reset()
+	Dict.Save()
+	Log.Debug(Prefs)
+#	Prefs = {}
+#	CreatePrefs()
+	return MessageContainer("Huzzah", "You are now sparklie clean.")
+	
+	
 
 def Menu(sender,type=None):
 	if type==ANIME_TYPE:
@@ -383,10 +536,10 @@ def Menu(sender,type=None):
 	dir.Append(Function(DirectoryItem(AlphaListMenu,"All %s" % type, thumb=R(all_icon)), type=type))
 	if type==ANIME_TYPE:
 		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular Anime" , thumb=R(all_icon)), type=type))
-		#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent %s" % type, thumb=R(all_icon)), type=type))
-		dir.Append(Function(DirectoryItem(GenreListMenu,"Anime by Genres", thumb=R(CRUNCHYROLL_ICON)), type=type))
+		#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent Anime" % type, thumb=R(all_icon)), type=type))
+		dir.Append(Function(DirectoryItem(GenreListMenu,"Anime by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
 	elif type==DRAMA_TYPE:
-		dir.Append(Function(DirectoryItem(GenreListMenu,"Drama by Genres", thumb=R(CRUNCHYROLL_ICON)), type=type))
+		dir.Append(Function(DirectoryItem(GenreListMenu,"Drama by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
 	
 	return dir
 
@@ -461,7 +614,6 @@ def makeSeriesItem(series):
 	#Log.Debug("art url for %s: %s"%(series['title'],a))#,series['art']))
 	art = series['art']
 	if art is None: art = ""
-	url = scrapper.seriesTitleToUrl(series['title'])
 
 	seriesItem =  Function(
 		DirectoryItem(
@@ -477,7 +629,7 @@ def SeriesMenu(sender,seriesId=None):
 	startTime = Datetime.Now()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
 	
-	if LoggedIn():
+	if Login() and isPremium():
 		dir.Append(
 			Function(PopupDirectoryItem(
 					QueueChangePopupMenu, 
@@ -640,12 +792,19 @@ def makeEpisodeItem(episode):
 	"""
 	giveChoice = True
 	if Prefs['quality'] != "Ask":
+		Log.Debug("Quality is not Ask")
 		giveChoice = False
 	elif not Prefs['password'] or not Prefs['username']:
+		Log.Debug("User wants to choose res, but password is missing")
 		giveChoice = False
-	elif not LoggedIn():
+	elif not isPremium():
+		Log.Debug("User wants to choose res, but not a premium member")
 		giveChoice = False
 
+	if giveChoice:
+		Log.Debug("###############Giving Choice to user")
+	else:
+		Log.Debug("##################Not giving choice to user")
 	episodeItem = []
 	summary = makeEpisodeSummary(episode)
 	
@@ -713,11 +872,13 @@ def makeEpisodeSummary(episode):
 
 
 def removeFromQueue(sender,seriesId):
+	Login()
 	response = makeAPIRequest2("req=RpcApiUserQueue_Delete&group_id=%s"%seriesId)
 	Log.Debug("remove response: %s"%response)
 	return MessageContainer("Success",'Removed from Queue')
 
 def addToQueue(sender,seriesId,url=None):
+	Login()
 	#FIXME url not needed?
 	Log.Debug("add mediaid: %s"%seriesId)
 	response = makeAPIRequest2("req=RpcApiUserQueue_Add&group_id=%s"%seriesId)
@@ -729,8 +890,9 @@ def QueueChangePopupMenu(sender, seriesId):
 	Popup a Menu asking user if she wants to
 	add or remove this series from her queue
 	"""
+	Login()
 	dir = MediaContainer(title1="Queue",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
-	if LoggedIn():
+	if isPremium():
 		queueList = scrapper.getQueueList()
 		inQ = False
 		for item in queueList:
@@ -789,7 +951,7 @@ def playVideoMenu(sender, episode):
 	
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
-	videoInfo['small'] = not (GlobalWasLoggedIn is True and isPremium(episode['type']) is True)
+	videoInfo['small'] = isPremium(episode['type']) is False
 
 	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
@@ -797,6 +959,7 @@ def playVideoMenu(sender, episode):
 			episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q]), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
 			dir.Append(episodeItem)
 	else:
+		Log.Debug("##############QUALITY IS NOT ASK")
 		prefRes = scrapper.getPrefRes(episode['availableResolutions'])
 		videoUrl = getVideoUrl(videoInfo, prefRes)
 		buttonText = "Play at %sp" % str(prefRes)
@@ -814,14 +977,12 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 	duration = vidInfo['duration'] # need this because duration isn't known until now
 	
 	
-	if modifyUrl:
+	if modifyUrl is True:
 		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
 		bestRes = scrapper.getPrefRes(resolutions)
 		theUrl = getVideoUrl(vidInfo, bestRes)
 	# theUrl = theUrl + "&small=1"
-	Log.Debug("##########final URL is '%s'" % theUrl)
-	Log.Debug("##########duration: %s" % str(duration))
-	DIRECT_GRAB = False
+
 
 	# grab the .swf file directly
 	# example element:
@@ -829,7 +990,7 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 
 	
 	if DIRECT_GRAB:
-		if LoggedIn(): # only premium users should grab directly
+		if isPremium(): # only premium users should grab directly
 			req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 			#Log.Debug("###########")
 			#Log.Debug(req.content)
@@ -841,7 +1002,33 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 				theUrl = theUrl
 			else:
 				theUrl = match.group(2)
+	elif USE_BOXEE_STREAM:
+		#req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 
+		# example: http://www.crunchyroll.com/angelic-layer/episode-26-454040?p480=1
+		pieces = theUrl.split('/')
+		name = pieces[3]
+		id = re.sub(r'.*-|\?.*', r'', pieces[4])
+		mediapath = pieces[4].split('?')[0]
+		
+		#http://www.crunchyroll.com/boxee_showmedia/588306&amp;bx-ourl=http://www.crunchyroll.com/naruto-shippuden/episode-246-the-orange-spark-588306
+		
+		theUrl = "http://www.crunchyroll.com/boxee_showmedia/%s&amp;bx-ourl=http://www.crunchyroll.com/%s/%s" % (id, name, mediapath)
+
+		req = HTTP.Request(theUrl, immediate=True, cacheTime=0, encoding='utf8')
+		m = re.search(r'\'video_player\',\'([^\']+)\', *\'([^\']+)\'', req.content, re.MULTILINE) ;m
+
+		if m:
+			height = m.group(2) # only care about height
+			theUrl=theUrl + "&__qual=%s" % height # this is bogus param for site config recognition
+		else:
+			Log.Error("#####could not find user resolution settings for %s" % theUrl)
+			Log.Debug(req.content)
+			# but we go with it anyway...			
+ 			
+	Log.Debug("##########final URL is '%s'" % theUrl)
+	Log.Debug("##########duration: %s" % str(duration))
+	
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
 

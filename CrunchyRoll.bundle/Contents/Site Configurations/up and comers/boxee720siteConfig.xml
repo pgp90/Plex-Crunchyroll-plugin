@@ -1,24 +1,14 @@
 <?xml version="1.0"?>
-<site site="http://www.crunchyroll.com" 
-plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
-initialState="playing" version="2.0">
-<!--
-<site site="http://www.crunchyroll.com" 
-plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
-initialState="playing" version="2.0">
--->
-
-<!-- garbage heap
-plugin="http://static.lln.crunchyroll.com/flash/20111227190142.0fa282dfa08cb851004372906bfd7e14/StandardVideoPlayer.swf.*"
-
--->
-	<crop x="0" y="0" width="0" height="-32"/>
-	<seekbar type="thumb">
-		<start x="82" y="358"/>
-		<end x="334" y="358"/>
-		<played>
-			<color rgb="333333"/>
-		</played>
+<site site="http://.*.crunchyroll.com/boxee_showmedia/.*"
+	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
+	initialState="playing" version="2.0">
+	
+	<crop x="0" y="0" width="0" height="0"/>
+	<seekbar type="javascript">
+		<percentComplete equals="$.getPlayhead()/$.getDuration() * 100.0"/>
+		<bigStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>
+		<smallStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>
+		<end condition="$.getPlayhead() &gt; 0 &amp;&amp; $.getPlayhead() &gt; $.getDuration()"/>
 	</seekbar>
 
 	

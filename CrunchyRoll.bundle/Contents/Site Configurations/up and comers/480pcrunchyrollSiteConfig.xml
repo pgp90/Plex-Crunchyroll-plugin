@@ -4,7 +4,9 @@
 	initialState="waiting_for_flash_to_load" 
 	version="1.0"
 	identifier="com.plexapp.plugins.CrunchyRoll">
-	<crop x="100" y="0" width="760" height="-32"/>
+<!--	<crop x="100" y="0" width="760" height="-32"/> -->
+<!-- This creates a 16:9 ratio, some may not like it with the black edges -->
+	<crop x="0" y="0" width="0" height="-32"/> -->
 	<seekbar type="javascript">
 		<percentComplete equals="$.getPlayhead()/$.getDuration() * 100.0"/>
 		<bigStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>

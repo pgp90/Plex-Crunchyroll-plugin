@@ -1,5 +1,58 @@
 import tvdbscrapper, fanartScrapper
 
+"""
+schema
+	all items (even movies) can be referenced by a the series dict.
+	series are known by seriesID (a unique number), provided by crunchyroll.com
+	{ seriesId: {
+		"title": title,
+		"seriesId": seriesId,
+		"tvdbId": tvdbId,
+		"description": description,
+		"thumb": thumb,
+		"art": art,
+		'epsRetrived': None,
+		'epList': None
+		}
+	}
+	
+	episodesList contains playable media (it's actually a dict, but let's not get finicky).
+	episodes are known by mediaId (a unique number), provided at crunchyroll.com
+	This is an episode entry in the list:
+	'371594': {'seriesTitle': 'Egg Man', 
+		'publisher': 'T.O Entertainment', 
+		'mediaId': 371594, 
+		'description': 'few images of the movie Egg Man\r\n ', 
+		'episodeNum': None, 
+		'rating': 1, 
+		'season': None, 
+		'title': 'Egg Man Trailer 1', 
+		'link': 'http://www.crunchyroll.com/egg-man/-egg-man-egg-man-trailer-1-371594'
+	}
+	
+	another episode schema [! make these consistent!]
+	episode = {
+		"title": title,
+		"link": link,
+		"mediaId": mediaId,
+		"description": description,
+		"seriesTitle": seriesTitle,
+		"episodeNum": episodeNum,
+		"thumb": thumb,
+		"availableResolutions": availableResolutions,
+		"publisher": publisher,
+		"season": season,
+		"keywords": keywords,
+		"type": mediaType,
+		"rating": rating
+	}
+						
+						
+	season list contains seasons, and its parent is a "series".
+	
+"""
+
+
 USE_RANDOM_FANART = True
 SERIES_FEED_CACHE_TIME = 3600 # 1 hour
 QUEUE_LIST_CACHE_TIME = 15 # 15 seconds
@@ -13,8 +66,8 @@ SERIES_TITLE_URL_FIX = {
 Boxee2Resolution = {'12':360, '20':480, '21':720}
 Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
 
-
 def getQueueList():
+	Login()
 	queueURL = BASE_URL+"/queue"
 	queueHtml = HTML.ElementFromURL(queueURL,cacheTime=QUEUE_LIST_CACHE_TIME)
 	queueList = []
@@ -481,14 +534,16 @@ def getAvailResFromPage(url):
 	
 	if not Prefs['username'] or not Prefs['password']:
 		return [360]
-	
+
+	Login()
+
 	availRes = [360]
 	link = url.replace(BASE_URL, "")
 	req = HTTP.Request(url=url, immediate=True, cacheTime=3600*24)
 	html = HTML.ElementFromString(req)
 	
 	try: 
-		small = (str(req).find("href=\"/freetrial/") >=0)
+		small = not isPremium()
 		if small:
 			Log.Debug("#######HEY, WE ARE NOT SIGNED IN")
 
@@ -516,7 +571,7 @@ def getPrefRes(availRes):
 
 	if not Prefs['username'] or not Prefs['password']:
 		return 360 # that's all you get
-		
+	Login()
 	preferredRes = 360
 
 	if Prefs['quality'] == "Ask":
