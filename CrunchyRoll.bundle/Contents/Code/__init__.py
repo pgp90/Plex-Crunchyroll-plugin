@@ -104,6 +104,7 @@ def getThumb(url,tvdbId=None):
 		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
 		if thumb is None: thumb = url
 		url=thumb
+	
 	if url==R(CRUNCHYROLL_ICON):
 		ret = url
 	else:
@@ -114,13 +115,31 @@ def getThumb(url,tvdbId=None):
 					ret = DataObject(data, 'image/jpeg')
 				elif url.endswith(".png"):
 					ret = DataObject(data, 'image/png')
-			except: pass
+			except Exception, arg:
+				Log.Debug("#####Thumbnail couldn't be retrieved:")
+				Log.Error("#####" + repr(Exception) + repr(arg))
+				ret = None
+
 	if ret is None:
 		return R(CRUNCHYROLL_ICON)
 	else:
 		return ret
 
+def getThumbUrl(url, tvdbId=None):
+	"""
+	just get the best url instead of the image data itself.
+	this can help 'larger thumbs missing' issue
+	"""
+	if (tvdbId is not None and Prefs['fanart'] is True):
+		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
+		if thumb is not None: return thumb
 
+
+	if url==R(CRUNCHYROLL_ICON):
+		return url
+	
+	return url
+	
 def selectArt(url,tvdbId=None):
 	ret = None
 	if (tvdbId is not None and Prefs['fanart'] is True):
@@ -260,7 +279,7 @@ def CreatePrefs():
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
 	Preffs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
-	Prefs.Add(id='fanart', type='bool', default="true", label="Use Fanart.tv when possible?")
+	Prefs.Add(id='fanart', type='bool', default="false", label="Use Fanart.tv when possible?")
 
 
 def ValidatePrefs():
@@ -449,7 +468,7 @@ def makeSeriesItem(series):
 			SeriesMenu, 
 			title = series['title'],
 			summary=series['description'].encode("utf-8"),
-			thumb=Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
+			thumb=getThumbUrl(series['thumb'], tvdbId=series['tvdbId']), #Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
 			art = Function(getArt,url=art,tvdbId=series['tvdbId'])
 		), seriesId=series['seriesId'])
 	return seriesItem
@@ -794,13 +813,14 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
 	duration = vidInfo['duration'] # need this because duration isn't known until now
 	
+	
 	if modifyUrl:
 		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
 		bestRes = scrapper.getPrefRes(resolutions)
 		theUrl = getVideoUrl(vidInfo, bestRes)
 	# theUrl = theUrl + "&small=1"
 	Log.Debug("##########final URL is '%s'" % theUrl)
-
+	Log.Debug("##########duration: %s" % str(duration))
 	DIRECT_GRAB = False
 
 	# grab the .swf file directly

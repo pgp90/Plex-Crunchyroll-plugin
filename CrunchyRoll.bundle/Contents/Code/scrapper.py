@@ -61,7 +61,7 @@ def cacheAllSeries():
 							tvdbIdr = tvdbscrapper.GetTVDBID(title, Locale.Language.English)
 							tvdbId = tvdbIdr['id']
 						else:
-							tvdbId = none
+							tvdbId = None
 						#if USE_RANDOM_FANART is True and tvdbId is not None:
 						#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
 						#	art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
@@ -122,8 +122,12 @@ def getSeriesListFromFeed(feed):
 			def parseSeriesItem(item=item,seriesId=seriesId):
 				if not (str(seriesId) in Dict['series']):
 					title = item.xpath("./title")[0].text
-					tvdbIdr = tvdbscrapper.GetTVDBID(title, Locale.Language.English)
-					tvdbId = tvdbIdr['id']
+					if Prefs['fanart'] is True:
+						tvdbIdr = tvdbscrapper.GetTVDBID(title, Locale.Language.English)
+						tvdbId = tvdbIdr['id']
+					else:
+						tvdbId = None
+						
 					description = item.xpath("./description")[0].text
 					#if USE_RANDOM_FANART is True and tvdbId is not None:
 					#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
@@ -134,6 +138,7 @@ def getSeriesListFromFeed(feed):
 					#		art = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 					#else:
 					thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+					
 					if ART_SIZE_LIMIT is False:
 						art = thumb
 					else:
@@ -151,6 +156,7 @@ def getSeriesListFromFeed(feed):
 					dictInfo['epList'] = []
 					Dict['series'][str(seriesId)] = dictInfo
 				else:
+					title = item.xpath("./title")[0].text
 					#tvdbId = seriesDict[str(seriesId)]['tvdbId']
 					#if USE_RANDOM_FANART is True and tvdbId is not None:
 					#	thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
@@ -161,6 +167,7 @@ def getSeriesListFromFeed(feed):
 					#		art = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 					#else:
 					thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+
 					if ART_SIZE_LIMIT is False:
 						art = thumb
 					else:
@@ -244,7 +251,7 @@ def getEpisodeListForSeries(seriesId):
 	if str(seriesId) not in Dict['series']:
 		cacheAllSeries()
 	seriesData = Dict['series'][str(seriesId)]
-	if seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=60) <= Datetime.Now():
+	if seriesData['epList'] is None or seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=60) <= Datetime.Now():
 		epList = getEpisodeListFromFeed(seriesTitleToUrl(seriesData['title']))
 		seriesData['epsRetrived'] = Datetime.Now()
 		epIdList = []
@@ -312,7 +319,11 @@ def getEpisodeListFromFeed(feed):
 	try:
 		episodeList = []
 		PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
-		feedHtml = XML.ElementFromURL(feed)
+
+		# timeout errors driving me nuts, so
+		req = HTTP.Request(feed, timeout=100)
+		feedHtml = XML.ElementFromString(req.content)
+#		feedHtml = XML.ElementFromURL(feed)
 		items = feedHtml.xpath("//item")
 		seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
 		hasSeasons = True
@@ -440,9 +451,13 @@ def getVideoInfo(baseUrl, mediaId, availRes):
 		
 	d = html.xpath("//stream_info/metadata/duration")
 	if len(d):
-		try: episodeInfo['duration'] = int(float(d)*1000)
-		except (ValueError, TypeError): episodeInfo['duration'] = 0
-	else: episodeInfo['duration'] = 0
+		try: episodeInfo['duration'] = int(float(d[0].text)*1000)
+		except Exception, arg:
+			Log.Debug(repr(arg) + "\nsetting duration to 0")
+			episodeInfo['duration'] = 0
+	else:
+		Log.Debug("#########Couldnt find duration")
+		episodeInfo['duration'] = 0
 	
 	n = html.xpath("//media_metadata/episode_number")
 	if len(n):

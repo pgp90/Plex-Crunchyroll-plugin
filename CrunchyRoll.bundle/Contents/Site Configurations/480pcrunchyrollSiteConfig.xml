@@ -170,13 +170,25 @@
 
  <state name="starting_video"> <event> <condition> <not> <condition name="should_restart_video_on_start" /> </not> </condition> <action> <goto state="playing"/> </action> </event> <event> <condition> <condition name="should_restart_video_on_start" /> </condition> <action> <pause time="50" /> <type key="91" /> <pause time="50" /> <goto state="playing" /> </action> </event> </state> 
 	-->
+	<state name="pausing_ad">
+		<event>
+			<condition> <command name="pause" /> </condition>
+			<action>
+				<!-- anywhere in the middle of vid should do it -->
+				<click "312" y="190" />
+				<goto state="playing_ad" />
+			</action>
+		</event>
+	</state>
 	<state name="playing_ad">
 		<event>
 			<condition>
-				<command name="play"/>
+				<command name="pause"/>
 			</condition>
 			<action>
-				<goto state="playing"/>
+				<!-- anywhere in the middle of vid should do it -->
+				<click "312" y="190" />
+				<goto state="pausing_ad"/>
 			</action>
 		</event>
 		<event>

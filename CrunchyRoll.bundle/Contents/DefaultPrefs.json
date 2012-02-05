@@ -44,6 +44,6 @@
 		"id": "fanart",
 		"type": "bool",
 		"label": "Use Fanart.tv when possible?",
-		"default": "true"
+		"default": "false"
 	}
 ]
