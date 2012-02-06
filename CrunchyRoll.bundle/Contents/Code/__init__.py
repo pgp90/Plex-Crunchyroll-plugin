@@ -111,7 +111,6 @@ API_HEADERS = {
 
 import fanartScrapper
 import urllib2
-import media_tests
 
 LOGIN_GRACE = 1800
 loggedInSince = 0.0
