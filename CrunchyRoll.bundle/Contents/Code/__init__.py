@@ -123,6 +123,8 @@ def Start():
 	MediaContainer.viewGroup = "List"
 	DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
 	
+	if Dict['Authentication'] is None:
+		resetAuthInfo()
 		
 	#LoginAtStart()
 	if 'episodes' not in Dict:
@@ -289,19 +291,41 @@ def LoggedIn():
 	Immediately check if user is logged in, and change global values to reflect status. 
 	DO NOT USE THIS A LOT
 	"""
-	global AnimePremium, DramaPremium
-	req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", immediate=True, cacheTime=0)
+	if not Dict['Authentication']:
+		resetAuthInfo()
+		
+	AnimePremium, DramaPremium = False, False
+	
+	req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", cacheTime=0)
 	authorized = False
 	if "Profile Information" in req.content:
 		authorized = True
 	
+	authInfo = Dict['Authentication']
+	
 	if authorized:
-		if "Anime member!" in req.content:
-			AnimePremium = True
-		if "Drama member!" in req.content: #FIXME untested!
-			DramaPremium = True
+		if "Anime Member!" in req.content:
+			authInfo['AnimePremium'] = True
+		if "Drama Member!" in req.content: #FIXME untested!
+			authInfo['DramaPremium'] = True
+		
+		Dict['Authentication'] = authInfo #FIXME: needed?
+		
+		Log.Debug("#####You are authorized for premium content, have a nice day.")
+		Log.Debug("#####AnimePremium member: %s" % ("yes" if authInfo['AnimePremium'] else "no"))
+		Log.Debug("#####DramaPremium member: %s" % ("yes" if authInfo['DramaPremium'] else "no"))
+		if not authInfo['AnimePremium'] and not authInfo['DramaPremium']: #WTF?
+			Log.Error("####Programmer does not know what he's doing withe Anime/Drama accounts. Apologies.")
+			Log.Debug(req.content)
+			
 	return authorized
 
+def resetAuthInfo():
+	"""
+	put a default authentication status structure into
+	the global Dict{}
+	"""
+	Dict['Authentication'] =  {'loggedInSince':0, 'failedLoginCount':0, 'AnimePremium': False, 'DramaPremium': False}
 
 def Login(force=False):
 	"""
@@ -313,28 +337,31 @@ def Login(force=False):
 	See IsPremium() if you want to check permissions. or LoggedIn() if you 
 	want to fetch a web page NOW (use conservatively!)
 	"""
-	global loggedInSince
-	global failedLoginCount
+	if not Dict['Authentication'] : resetAuthInfo()
+	
+	authInfo = Dict['Authentication'] #dicts are mutable, so authInfo is a reference & will change Dict presumably
 	if Prefs['username'] and Prefs['password']:
 
 		# fifteen minutes is reasonable.
 		# this also prevents spamming server
-		if (force == False) and (time.time() - loggedInSince) < LOGIN_GRACE:
+		if (force == False) and (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
 			return True
 
-		Log.Debug("#########Well\n forced is %s and loggedInTime is %f" % (repr(force), time.time() - loggedInSince) )
+		Log.Debug("#########Well\n forced is %s and loggedInTime is %f" % (repr(force), time.time() - authInfo['loggedInSince']) )
 		if force: 
 			HTTP.ClearCookies()
-			loggedInSince = 0
-			failedLoginCount = 0
+			authInfo['loggedInSince'] = 0
+			authInfo['failedLoginCount'] = 0
+			#Dict['Authentication'] = authInfo
 
-		if not force and failedLoginCount > 2:
+		if not force and authInfo['failedLoginCount'] > 2:
 			return False # Don't bash the server, just inform caller
 		
 		Log.Debug("#########checking log in")
 		if LoggedIn():
-			failedLoginCount = 0
-			loggedInSince = time.time()
+			authInfo['failedLoginCount'] = 0
+			authInfo['loggedInSince'] = time.time()
+			#Dict['Authentication'] = authInfo
 			return True
 		else:
 			Log.Debug("########THIS LOGIN FAILED, MUST LOG IN AGAIN")
@@ -346,8 +373,10 @@ def Login(force=False):
 
 		#check it
 		if LoggedIn():
-			loggedInSince = time.time()
-			failedLoginCount = 0
+			authInfo['loggedInSince'] = time.time()
+			authInfo['failedLoginCount'] = 0
+			#Dict['Authentication'] = authInfo
+
 			return True
 		else:
 			Log.Debug("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
@@ -355,11 +384,14 @@ def Login(force=False):
 			Log.Debug(HTTP.Headers['Cookie'])
 			Log.Debug("headers: %s" % req.headers)
 			Log.Debug("content: %s" % req.content)
-			failedLoginCount = failedLoginCount + 1
-			loggedInSince = 0
+			authInfo['failedLoginCount'] = failedLoginCount + 1
+			authInfo['loggedInSince'] = 0
+			#Dict['Authentication'] = authInfo
 			return False
 	else:
-		failedLoginCount = 0
+		authInfo['failedLoginCount'] = 0
+		#Dict['Authentication'] = authInfo
+
 		return True # empty user is not authentication failure
 
 def isPremium(epType=None):
@@ -369,28 +401,33 @@ def isPremium(epType=None):
 	doesn't work.
 	Passing type=None will return True if the user is logged in.
 	"""
-	global AnimePremium, DramaPremium, loggedInSince
+	if not Dict['Authentication']: resetAuthInfo()
+	
+	authInfo = Dict['Authentication']
+	
 	Login()
-	if (time.time() - loggedInSince) < LOGIN_GRACE:
+	if (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
 		Log.Debug("#####we're in the login window")
 		if epType is None: return True
 
-		if epType is ANIME_TYPE and AnimePremium is True:
+		if epType == ANIME_TYPE and authInfo['AnimePremium'] is True:
 			return True
-		elif epType is DRAMA_TYPE and DramaPremium is True:
+		elif epType == DRAMA_TYPE and authInfo['DramaPremium'] is True:
 			return True
 		Log.Debug("#####BUT neither Anime nor Drama Premium is set!")
 
 		return False #FIXME actually this should be an exception
 
-	Log.Debug("####you're not in the login window, too bad. t = %f" % (time.time()-loggedInSince))
+	Log.Debug("####you're not in the login grace period, too bad. t = %f" % (time.time()-authInfo['loggedInSince']))
 	return False
 
 def Logout():
 	global loggedInSince, failedLoginCount
+	
+	
 	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
-	failedLoginCount = 0
-	loggedInSince = 0
+	#this turns every permission off:
+	resetAuthInfo()
 
 
 
