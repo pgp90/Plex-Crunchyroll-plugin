@@ -417,6 +417,17 @@ def getEpisodeListFromFeed(feed):
 							Log.Debug(rating)
 							
 							# see http://www.classify.org/safesurf/
+							#SS~~000. Age Range
+							#1) All Ages
+							#2) Older Children
+							#3) Teens
+							#4) Older Teens
+							#5) Adult Supervision Recommended
+							#6) Adults
+							#7) Limited to Adults
+							#8) Adults Only
+							#9) Explicitly for Adults
+
 							# just pluck the age value from text that looks like:
 							# (PICS-1.1 &quot;http://www.classify.org/safesurf/&quot; l r (SS~~000 5))
 							ageLimit = re.sub(r'(.*\(SS~~\d{3}\s+)(\d)(\).*)', r'\2', rating)

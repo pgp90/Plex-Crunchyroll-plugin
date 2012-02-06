@@ -39,6 +39,20 @@ Resolution2Quality = {360:"SD", 480: "480P", 720: "720P", 1080: "1080P"}
 # NOTE: this is also in scrapper.py
 Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
 
+# these don't map too well to the Movie-style ratings, but also don't have 
+# a human-readable semantic, so:
+SAFESURF_MAP = { 
+#	0: "NR", # unused, 0 has no meaning in safe surf, so it is an error.
+	1: "G",
+	2: "Y7",
+	3: "TEEN",   # kinda like PG, but doesn't suggest parental guidance, so whatev
+	4: "TV-14",  # kids, you can get away with this one.
+	5: "MA",     # this is mature content (Adult supervision). It includes horror movies [!]
+	6: "MA",     # Adults
+	7: "R",      # Adults ONLY
+	8: "NC-17"   # Hardcore
+}
+
 ANIME_GENRE_LIST = {
 	'Action':'action',
 	'Adventure':'adventure',
@@ -75,7 +89,7 @@ DRAMA_GENRE_LIST = {
 	'Food':'food',
 	'Historical':'historical',
 	'Horror':'horror',
-	# 'Martial Arts': 'martial_arts', # broken :-(
+	'Martial Arts': 'martial+arts',
 	'Romance':'romance',
 	'Thriller':'thriller'
 	}
@@ -537,11 +551,13 @@ def TopMenu():
 	if CHECK_PLAYER is True:
 		scrapper.returnPlayer()
 	Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
+
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
-	dir.Append(Function(DirectoryItem(Menu,"Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
-	dir.Append(Function(DirectoryItem(Menu,"Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
 	if isPremium():
-		dir.Append(Function(DirectoryItem(QueueMenu,"Browse Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
+		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
+	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
+	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
+
 	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
 	if ENABLE_DEBUG_MENUS:
 		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON))) )
@@ -602,11 +618,11 @@ def addMediaTests(dir):
 
 			{'title': 'Gintama 187',
 			 'season': 'None',
-			 'summary': "720p Boxee feed. This needs a premium account. Plex client should show a resolution of ?x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "720p Boxee feed. This needs a premium account. Plex client should show a resolution of 720x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/537056&amp;bx-ourl=http://www.crunchyroll.com/gintama/537056',
 			 'mediaId': '537056',
 			},
-			{'title': 'Bleach Episode 356',
+			{'title': 'Bleach Episode 357',
 			 'season': 'Ten',
 			 'summary': "1080p Boxee feed. This needs a premium account. Plex client should show a resolution of exactly 1920x1080, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/588328&amp;bx-ourl=http://www.crunchyroll.com/bleach/588328',
@@ -622,21 +638,28 @@ def addMediaTests(dir):
 		
 		for episode in testEpisodes:
 			dir.Append(ConstructTestVideo(episode))
-
-def Menu(sender,type=None):
+		#rtmpe://cp150757.edgefcs.net/ondemand/?auth=daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD&amp;aifp=0009&amp;slist=c6/s/ve709961/video.mp4
+		dir.Append(RTMPVideoItem(
+			url="rtmpe://cp150757.edgefcs.net/ondemand/?auth=daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD&amp;aifp=0009&amp;slist=c6/s/ve709961/video.mp4",
+#			clip="mp4:c6/s/ve709961/video.mp4", 
+			width=656,height=368, 
+			auth="daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD",
+			aifp="0009",
+			title="The Mighty Chilwu Episode 1",
+			summary="This is an RTMPE stream. It shouldn't play, but if it does it should show ads and fit the borders." 
+			)
+		)
+def BrowseMenu(sender,type=None):
 	if type==ANIME_TYPE:
 		all_icon = ANIME_ICON
 	elif type==DRAMA_TYPE:
 		all_icon = DRAMA_ICON
 		
-	dir = MediaContainer(disabledViewModes=["coverflow"], title1=sender.title1)
-	dir.Append(Function(DirectoryItem(AlphaListMenu,"All %s" % type, thumb=R(all_icon)), type=type))
-	if type==ANIME_TYPE:
-		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular Anime" , thumb=R(all_icon)), type=type))
-		#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent Anime" % type, thumb=R(all_icon)), type=type))
-		dir.Append(Function(DirectoryItem(GenreListMenu,"Anime by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
-	elif type==DRAMA_TYPE:
-		dir.Append(Function(DirectoryItem(GenreListMenu,"Drama by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
+	dir = MediaContainer(disabledViewModes=["coverflow"], title1="Browse %s" % type)
+	dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
+	dir.Append(Function(DirectoryItem(PopularListMenu,"Popular" , title1="Popular", thumb=R(all_icon)), type=type))
+	#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent Anime" % type, thumb=R(all_icon)), type=type))
+	dir.Append(Function(DirectoryItem(GenreListMenu,"by Genre", title1="by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
 	
 	return dir
 
@@ -719,12 +742,12 @@ def makeSeriesItem(series):
 			summary=series['description'].encode("utf-8"),
 			thumb=getThumbUrl(series['thumb'], tvdbId=series['tvdbId']), #Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
 			art = Function(getArt,url=art,tvdbId=series['tvdbId'])
-		), seriesId=series['seriesId'])
+		), seriesId=series['seriesId'], seriesTitle=series['title'])
 	return seriesItem
 		
-def SeriesMenu(sender,seriesId=None):
+def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
 	startTime = Datetime.Now()
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=seriesTitle)
 	
 	if Login() and isPremium():
 		dir.Append(
@@ -810,8 +833,8 @@ def makeQueueItem(queueInfo):
 	sId = str(queueInfo['seriesId'])
 	thumb = (s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
 	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
-	queueItem = Function(PopupDirectoryItem(
-		QueuePopupMenu,
+	queueItem = Function(DirectoryItem(
+		QueueItemMenu,
 		title=queueInfo['title'],
 		summary=s[sId]['description'],
 		thumb=Function(getThumb,url=thumb),
@@ -822,36 +845,39 @@ def makeQueueItem(queueInfo):
 
 def QueuePopupMenu(sender, queueInfo):
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])#, noCache=True)
-	ViewQueueItem = Function(DirectoryItem(QueueItemMenu, "View"), queueItemInfo=queueInfo)
+	ViewQueueItem = Function(DirectoryItem(QueueItemMenu, "View"), queueInfo=queueInfo)
 	RemoveSeries = Function(DirectoryItem(removeFromQueue, title="Remove from queue"), seriesId=queueInfo['seriesId'])
 	dir.Append(ViewQueueItem)
 	dir.Append(RemoveSeries)
+	dir.noCache=1
 	return dir
 
 
-def QueueItemMenu(sender,queueItemInfo):
+def QueueItemMenu(sender,queueInfo):
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True)
-	seriesurl = scrapper.seriesTitleToUrl(queueItemInfo['title'])
+	seriesurl = scrapper.seriesTitleToUrl(queueInfo['title'])
 	s = Dict['series']
-	sId = str(queueItemInfo['seriesId'])
+	sId = str(queueInfo['seriesId'])
 	thumb = (s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
 	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
-	if queueItemInfo['epToPlay'] is not None:
-		nextEp = scrapper.getEpInfoFromLink(queueItemInfo['epToPlay'])
-		PlayNext_old = Function(
-			PopupDirectoryItem(
-				playVideoMenu,
-				title="Play Next Episode",
-				subtitle=nextEp['title'],
-				summary=makeEpisodeSummary(nextEp),
-				thumb=Function(getThumb,url=nextEp['thumb']),
-				art=Function(getArt,url=art)
-			),
-			episode=nextEp
-		)
+	if queueInfo['epToPlay'] is not None:
+		nextEp = scrapper.getEpInfoFromLink(queueInfo['epToPlay'])
+#		PlayNext = Function(
+#			PopupDirectoryItem(
+#				playVideoMenu,
+#				title="Play Next Episode",
+#				subtitle=nextEp['title'],
+#				summary=makeEpisodeSummary(nextEp),
+#				thumb=Function(getThumb,url=nextEp['thumb']),
+#				art=Function(getArt,url=art)
+#			),
+#			episode=nextEp
+#		)
 		PlayNext = makeEpisodeItem(nextEp)
 		dir.Append(PlayNext)
-	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueItemInfo['seriesId'])
+	RemoveSeries = Function(DirectoryItem(removeFromQueue, title="Remove series from queue"), seriesId=sId)
+	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueInfo['seriesId'])
+	dir.Append(RemoveSeries)
 	dir.Append(ViewSeries)
 	dir.noCache = 1
 	return dir
@@ -878,6 +904,20 @@ def getEpisodeArt(episode):
 	Log.Debug("artUrl: %s"%artUrl)
 	return artUrl
 
+def createRatingString(ratingLevel, append="\n"):
+	"""
+	Given a safe surf rating level integer, return a human-understandable string in a form like:
+	[PG-14]. Note: THESE ARE APPROXIMATIONS. Some Tv-14 content shows up as G!
+	It also appends a linefeed if there is indeed a rating. If you need a better character to append,
+	use append=whateveryourstringis.
+	"""
+	theString ="["
+	if ratingLevel and SAFESURF_MAP.has_key(ratingLevel):
+		theString = theString + SAFESURF_MAP[ratingLevel]
+		theString = theString + "]" + append
+		return theString
+	else:
+		return "[NR]" + append
 
 def makeEpisodeItem(episode):
 	"""
@@ -912,7 +952,7 @@ def makeEpisodeItem(episode):
 				adultWarning,
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
-				summary = summary,
+				summary = createRatingString(episode['rating']) + summary,
 				thumb = Function(getThumb,url=episode['thumb']),
 				art=Function(getArt,url=getEpisodeArt(episode))
 				),
@@ -926,7 +966,7 @@ def makeEpisodeItem(episode):
 				playVideoMenu,
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
-				summary = summary,
+				summary = createRatingString(episode['rating']) + summary,
 				thumb = Function(getThumb,url=episode['thumb']),
 				art=Function(getArt,url=getEpisodeArt(episode))
 			),
@@ -937,13 +977,13 @@ def makeEpisodeItem(episode):
 			WebVideoItem(PlayVideo, 
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
-				summary = summary,
+				summary = createRatingString(episode['rating']) + summary,
 				thumb = Function(getThumb,url=episode['thumb']),
 				art=Function(getArt,url=getEpisodeArt(episode))
 			), 
 				# sadly, duration requires extra fetch, so it's not good to 
 				# do per episode
-				url=episode['link'], title=episode['title'], duration=0, summary=summary,
+				url=episode['link'], title=episode['title'], duration=0, summary=createRatingString(episode['rating']) + " " + summary,
 				mediaId = episode['mediaId'],
 				modifyUrl=True
 		)
