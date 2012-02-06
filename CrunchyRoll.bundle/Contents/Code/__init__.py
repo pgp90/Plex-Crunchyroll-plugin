@@ -4,6 +4,8 @@ import re
 import os
 import urllib
 
+ENABLE_DEBUG_MENUS = True
+
 BASE_URL                     = "http://www.crunchyroll.com"
 
 CRUNCHYROLL_PLUGIN_PREFIX    = "/video/CrunchyRoll"
@@ -13,7 +15,9 @@ CRUNCHYROLL_ICON             = 'icon-default.png'
 ANIME_ICON                   = CRUNCHYROLL_ICON#'icon-anime.png'
 DRAMA_ICON                   = CRUNCHYROLL_ICON#'icon-drama.png'
 QUEUE_ICON                   = CRUNCHYROLL_ICON#'icon-queue.png'
+
 PREFS_ICON                   = 'icon-prefs.png'
+DEBUG_ICON                   = PREFS_ICON
 
 FEED_BASE_URL                = "http://www.crunchyroll.com/boxee_feeds/"
 LATEST_SHOWS_RSS             = "http://feeds.feedburner.com/crunchyroll/rss"
@@ -107,6 +111,7 @@ API_HEADERS = {
 
 import fanartScrapper
 import urllib2
+import media_tests
 
 LOGIN_GRACE = 1800
 loggedInSince = 0.0
@@ -289,7 +294,7 @@ def Login_old():
 def LoggedIn():
 	"""
 	Immediately check if user is logged in, and change global values to reflect status. 
-	DO NOT USE THIS A LOT
+	DO NOT USE THIS A LOT. It requires a web fetch.
 	"""
 	if not Dict['Authentication']:
 		resetAuthInfo()
@@ -323,9 +328,9 @@ def LoggedIn():
 def resetAuthInfo():
 	"""
 	put a default authentication status structure into
-	the global Dict{}
+	the global Dict{}. Every datum is least permissions on default.
 	"""
-	Dict['Authentication'] =  {'loggedInSince':0, 'failedLoginCount':0, 'AnimePremium': False, 'DramaPremium': False}
+	Dict['Authentication'] =  {'loggedInSince':0.0, 'failedLoginCount':0, 'AnimePremium': False, 'DramaPremium': False}
 
 def Login(force=False):
 	"""
@@ -364,7 +369,7 @@ def Login(force=False):
 			#Dict['Authentication'] = authInfo
 			return True
 		else:
-			Log.Debug("########THIS LOGIN FAILED, MUST LOG IN AGAIN")
+			Log.Debug("########WEB LOGIN CHECK FAILED, MUST LOG IN AGAIN")
 
 		# if we reach here, we must manually log in.
 		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
@@ -379,7 +384,7 @@ def Login(force=False):
 
 			return True
 		else:
-			Log.Debug("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
+			Log.Error("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
 			Log.Debug("COOKIIEEEE:")
 			Log.Debug(HTTP.Headers['Cookie'])
 			Log.Debug("headers: %s" % req.headers)
@@ -397,9 +402,10 @@ def Login(force=False):
 def isPremium(epType=None):
 	"""
 	return True if the user is logged in and has permissions to view extended content.
-	You will be able to pass ANIME_TYPE or DRAMA_TYPE to check specifically, although ATM it
-	doesn't work.
-	Passing type=None will return True if the user is logged in.
+	You can pass ANIME_TYPE or DRAMA_TYPE to check specifically.
+	
+	Passing type=None will return True if the user is logged in. Any other type
+	returns false.
 	"""
 	if not Dict['Authentication']: resetAuthInfo()
 	
@@ -434,9 +440,6 @@ def Logout():
 def LoginNotBlank():
 	if Prefs['username'] and Prefs['password']: return True
 	return False
-
-
-
 
 import scrapper, tvdbscrapper
 
@@ -541,9 +544,17 @@ def TopMenu():
 	if isPremium():
 		dir.Append(Function(DirectoryItem(QueueMenu,"Browse Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
 	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
+	if ENABLE_DEBUG_MENUS:
+		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON))) )
+	#dir.nocache = 1
+	
+	return dir
+
+def DebugMenu(sender):
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	dir.Append(Function(DirectoryItem(DumpInfo, "Dump info to console")) )
 	dir.Append(Function(DirectoryItem(ClearAllData, "Clear all data")) )
-	#dir.nocache = 1
+	dir.Append(Function(DirectoryItem(VideoTestMenu, "Test Videos...")) )
 	
 	return dir
 
@@ -560,8 +571,58 @@ def ClearAllData(sender):
 #	Prefs = {}
 #	CreatePrefs()
 	return MessageContainer("Huzzah", "You are now sparklie clean.")
+
+def ConstructTestVideo(episode)	:
+	episodeItem = \
+		WebVideoItem(url=episode['link'],
+			title = episode['title'],
+			subtitle = "Season %s"%episode['season'],
+			summary = episode['summary'],
+			#thumb = Function(getThumb,url=episode['thumb']),
+			#art=Function(getArt,url=getEpisodeArt(episode))
+		)
+	return episodeItem
+
+def VideoTestMenu(sender):
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll Video Tests")
+	addMediaTests(dir)
+	return dir
 	
-	
+def addMediaTests(dir):
+	"""
+	add some video tests to a MediaContainer
+	"""
+	if ENABLE_DEBUG_MENUS:
+		testEpisodes = [
+			{'title': 'Bleach Episode 1',
+			 'season': 'One',
+			 'summary': "480p Boxee feed. This needs a premium account. Plex client should show a resolution of ?x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'link': 'http://www.crunchyroll.com/boxee_showmedia/543611&amp;bx-ourl=http://www.crunchyroll.com/bleach/543611',
+			 'mediaId': '543611',
+			},
+
+			{'title': 'Gintama 187',
+			 'season': 'None',
+			 'summary': "720p Boxee feed. This needs a premium account. Plex client should show a resolution of ?x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'link': 'http://www.crunchyroll.com/boxee_showmedia/537056&amp;bx-ourl=http://www.crunchyroll.com/gintama/537056',
+			 'mediaId': '537056',
+			},
+			{'title': 'Bleach Episode 356',
+			 'season': 'Ten',
+			 'summary': "1080p Boxee feed. This needs a premium account. Plex client should show a resolution of exactly 1920x1080, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'link': 'http://www.crunchyroll.com/boxee_showmedia/588328&amp;bx-ourl=http://www.crunchyroll.com/bleach/588328',
+			 'mediaId': '588328',
+			},
+			{'title': 'Blue Exorcist Trailer',
+			  'season': 'None',
+			  'summary': '480p web page version. This needs a premium account. Plex client should show a resolution of 720x478, must not have black edges on top or bottom. Play, pause, and seek should work.',
+			  'link': 'http://www.crunchyroll.com/blue-exorcist/-blue-exorcist-blue-exorcist-official-trailer-577928?p480=1&small=0&wide=0',
+			  'mediaId': "577928"
+			}
+		]
+		
+		for episode in testEpisodes:
+			dir.Append(ConstructTestVideo(episode))
 
 def Menu(sender,type=None):
 	if type==ANIME_TYPE:

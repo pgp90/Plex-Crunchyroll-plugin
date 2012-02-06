@@ -1,9 +1,6 @@
 <?xml version="1.0"?>
-<!-- the "__qual=720" comes as a shout-out from the plugin; it's not a real crunchyroll.com value.
-	ATM, this is pretty much the same as the fallbackBoxee site config, since boxee streams
-	come at 720p by default.
--->
-<site site="http://.*.crunchyroll.com/boxee_showmedia/.*__qual=720"
+<!-- this catches all boxee stream urls, nice as a backup plan if url is herpity derpy-->
+<site site="http://.*.crunchyroll.com/boxee_showmedia/.*"
 	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 	initialState="playing" version="2.0">
 	

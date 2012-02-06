@@ -1,20 +1,33 @@
 <?xml version="1.0"?>
-<!-- the "__qual=720" comes as a shout-out from the plugin; it's not a real crunchyroll.com value.
-	ATM, this is pretty much the same as the fallbackBoxee site config, since boxee streams
-	come at 720p by default.
--->
-<site site="http://.*.crunchyroll.com/boxee_showmedia/.*__qual=720"
+<site site="http://www.crunchyroll.com/.*/.*?p480=1.*&amp;small=0&amp;wide=0" 
 	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
-	initialState="playing" version="2.0">
-	
-	<crop x="0" y="0" width="0" height="0"/>
+	initialState="playing" 
+	version="1.0"
+	identifier="com.plexapp.plugins.CrunchyRoll">
+<!-- 480p content is 720x480 according to standard. However, crunchyroll.com delivers a 960x510
+flash player (extra 33 vertical pixels for play bar), so crop that puppie down to standard HD. 
+This is not wise if wide=1.
+-->
+	<crop x="120" y="0" width="720" height="-32"/>
 	<seekbar type="javascript">
 		<percentComplete equals="$.getPlayhead()/$.getDuration() * 100.0"/>
 		<bigStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>
 		<smallStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>
 		<end condition="$.getPlayhead() &gt; 0 &amp;&amp; $.getPlayhead() &gt; $.getDuration()"/>
 	</seekbar>
-
+	<!--
+	ExternalInterface.addCallback("playVideo", _requestPlay);
+	ExternalInterface.addCallback("pauseVideo", _requestPause);
+	ExternalInterface.addCallback("togglePlayPause", _requestTogglePlayPause);
+	ExternalInterface.addCallback("seek", _requestSeek);
+	ExternalInterface.addCallback("setVolume", _requestSetVolume); 
+	ExternalInterface.addCallback("mute", _requestMute); 
+	ExternalInterface.addCallback("unmute", _requestUnmute); 
+	ExternalInterface.addCallback("getDuration", _requestGetDuration); 
+	ExternalInterface.addCallback("getPlayhead", _requestGetPlayhead); 
+	ExternalInterface.addCallback("getVolume", _requestGetVolume); 
+	ExternalInterface.addCallback("getMute", _requestGetMute); 
+	-->
 	
 	<state name="playing">
 		<event>
