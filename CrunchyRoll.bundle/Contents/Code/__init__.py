@@ -342,6 +342,11 @@ def Login(force=False):
 	See IsPremium() if you want to check permissions. or LoggedIn() if you 
 	want to fetch a web page NOW (use conservatively!)
 	"""
+	# FIXME: For this to be anything but completely unpredictable,
+	# you should pass the cookies on to safari by writing to
+	# ~/Library/Cookies/Cookies.plist and delete them from Safari
+	# when user logs out.
+	# apparently the webkit plex uses for rendering reads cookies from there (!)
 	if not Dict['Authentication'] : resetAuthInfo()
 	
 	authInfo = Dict['Authentication'] #dicts are mutable, so authInfo is a reference & will change Dict presumably
@@ -610,19 +615,19 @@ def addMediaTests(dir):
 		testEpisodes = [
 			{'title': 'Bleach Episode 1',
 			 'season': 'One',
-			 'summary': "480p Boxee feed. This needs a premium account. Plex client should show a resolution of ?x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "480p Boxee feed. This needs a premium account. Plex client should show a resolution of 720x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/543611&amp;bx-ourl=http://www.crunchyroll.com/bleach/543611',
 			 'mediaId': '543611',
 			},
 
 			{'title': 'Gintama 187',
 			 'season': 'None',
-			 'summary': "720p Boxee feed. This needs a premium account. Plex client should show a resolution of 720x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "720p Boxee feed. This needs a premium account. Plex client should show a resolution of 1280x720, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/537056&amp;bx-ourl=http://www.crunchyroll.com/gintama/537056',
 			 'mediaId': '537056',
 			},
 			{'title': 'Bleach Episode 357',
-			 'season': 'Ten',
+			 'season': 'None',
 			 'summary': "1080p Boxee feed. This needs a premium account. Plex client should show a resolution of exactly 1920x1080, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/588328&amp;bx-ourl=http://www.crunchyroll.com/bleach/588328',
 			 'mediaId': '588328',
@@ -632,9 +637,16 @@ def addMediaTests(dir):
 			  'summary': '480p web page version. This needs a premium account. Plex client should show a resolution of 720x478, must not have black edges on top or bottom. Play, pause, and seek should work.',
 			  'link': 'http://www.crunchyroll.com/blue-exorcist/-blue-exorcist-blue-exorcist-official-trailer-577928?p480=1&small=0&wide=0',
 			  'mediaId': "577928"
+			},
+			{'title': 'Blue Exorcist Trailer 360p',
+			  'season': 'None',
+			  'summary': '360p web page version.  You really should log out to test this.',
+			  'link': 'http://www.crunchyroll.com/blue-exorcist/-blue-exorcist-blue-exorcist-official-trailer-577928?p360=1&small=1&wide=0',
+			  'mediaId': "577928"
 			}
 		]
 		
+
 		for episode in testEpisodes:
 			dir.Append(ConstructTestVideo(episode))
 		#rtmpe://cp150757.edgefcs.net/ondemand/?auth=daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD&amp;aifp=0009&amp;slist=c6/s/ve709961/video.mp4
