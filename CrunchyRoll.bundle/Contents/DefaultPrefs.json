@@ -21,6 +21,13 @@
 		"default": "Highest Available"
 	},
 	{
+		"id": "video_source",
+		"type": "enum",
+		"label": "Video Source",
+		"values": ["Web Player", "Boxee Stream"],
+		"default": "Boxee Stream"
+	},
+	{
 		"id": "thumb_quality",
 		"type": "enum",
 		"label": "Thumbnail Quality",

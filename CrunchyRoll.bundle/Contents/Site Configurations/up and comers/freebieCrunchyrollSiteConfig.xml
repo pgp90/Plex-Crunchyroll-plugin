@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<site site="http://www.crunchyroll.com" 
+<site site="http://.*.crunchyroll.com" 
 plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 initialState="playing" version="2.0">
 

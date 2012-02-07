@@ -158,7 +158,7 @@ def cacheAllSeries():
 		#Log.Debug("end time: %s"%endTime)
 
 
-def getSeriesListFromFeed(feed):
+def getSeriesListFromFeed(feed, sort=True):
 	#startTime = Datetime.Now()
 	feedURL = FEED_BASE_URL+feed
 	feedHtml = HTML.ElementFromURL(feedURL,cacheTime=SERIES_FEED_CACHE_TIME)
@@ -242,7 +242,10 @@ def getSeriesListFromFeed(feed):
 	
 	#midTime = Datetime.Now()
 	#Dict['series'] = seriesDict
-	sortedSeriesList = sorted(seriesList, key=lambda k: k['title'])
+	if sort:
+		sortedSeriesList = sorted(seriesList, key=lambda k: k['title'])
+	else:
+		sortedSeriesList = seriesList
 	#endTime = Datetime.Now()
 	#Log.Debug("start time: %s"%startTime)
 	#Log.Debug("mid time: %s"%midTime)

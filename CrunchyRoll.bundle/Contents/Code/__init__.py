@@ -102,7 +102,7 @@ DIRECT_GRAB = False # grab the .swf file directly (buggy, but higher res)
 # at the moment Boxee streams only display at 720p. SD content is upscaled, 1080p is downscaled.
 # however, this is still a higher res than you'll get with the webkit, and the stream
 # is dumb easy to write a site config for (one config for all content)
-USE_BOXEE_STREAM = True 
+#USE_BOXEE_STREAM = True # this is now a Pref
 
 
 HTTP.CacheTime = 3600
@@ -133,7 +133,9 @@ AnimePremium = False
 DramaPremium = False
 
 def Start():
-
+	"""
+	Let's roll.
+	"""
 	Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
 	Plugin.AddViewGroup("List", viewMode = "List", mediaType = "Reverse Engineer the kinds of values allowed here someday")
 	MediaContainer.art = R(CRUNCHYROLL_ART)
@@ -163,6 +165,9 @@ def Start():
 		
 
 def debugDict():
+	"""
+	Dump the global Dict{} object to the console.
+	"""
 	for key in Dict:
 		Log.Debug("####### %s" % repr(key))
 		Log.Debug(Dict[key])
@@ -255,20 +260,28 @@ def getArt(url,tvdbId=None):
 		return ret
 
 
-def makeAPIRequest(values,referer=None):
+def makeAPIRequest(valuesDict,referrer=None):
+	"""
+	make a crunchyroll.com API request with the passed
+	dictionary. Optionally, specify referrer to prevent request
+	from choking.
+	"""
 	h = API_HEADERS
-	if not referer is None:
-		h['Referer'] = referer
+	if not referrer is None:
+		h['Referrer'] = referrer
 	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
-	req = HTTP.Request("https"+API_URL,values=values,cacheTime=0,immediate=True, headers=h)
+	req = HTTP.Request("https"+API_URL,values=valuesDict,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
 	return response
 
 
-def makeAPIRequest2(data,referer=None):
+def makeAPIRequest2(data,referrer=None):
+	"""
+	using raw data string, make an API request. Return the result
+	"""
 	h = API_HEADERS
-	if not referer is None:
-		h['Referer'] = referer
+	if not referrer is None:
+		h['Referrer'] = referrer
 	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
 	req = HTTP.Request("http"+API_URL,data=data,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
@@ -277,32 +290,6 @@ def makeAPIRequest2(data,referer=None):
 
 def LoginAtStart():
 	return Login(force=True)
-	
-def LoginAtStart_old():
-	global GlobalWasLoggedIn
-	global AnimePremium
-	global DramaPremium
-	#HTTP.ClearCookies() # FIXME put this back in after debugging
-	if LoginNotBlank():
-		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
-		response = makeAPIRequest(data)
-		Log.Debug("loginResponse:%s"%response)
-		response = JSON.ObjectFromString(response)
-		GlobalWasLoggedIn = (response.get('result_code') == 1)
-		if GlobalWasLoggedIn:
-			AnimePremium = (response.get('data').get('premium').get(PREMIUM_TYPE_ANIME) == 1)
-			DramaPremium = (response.get('data').get('premium').get(PREMIUM_TYPE_DRAMA) == 1)
-	return GlobalWasLoggedIn
-
-
-def LoggedIn_old():
-	return GlobalWasLoggedIn
-
-
-def Login_old():
-	if LoginNotBlank():
-		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
-		response = makeAPIRequest(data)
 
 def LoggedIn():
 	"""
@@ -386,7 +373,7 @@ def Login(force=False):
 
 		# if we reach here, we must manually log in.
 		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
+		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
 		HTTP.Headers['Cookie'] = HTTP.CookiesForURL('https://www.crunchyroll.com/')
 
 		#check it
@@ -401,7 +388,7 @@ def Login(force=False):
 			Log.Debug("COOKIIEEEE:")
 			Log.Debug(HTTP.Headers['Cookie'])
 			Log.Debug("headers: %s" % req.headers)
-			Log.Debug("content: %s" % req.content)
+			#Log.Debug("content: %s" % req.content) # Too much info
 			authInfo['failedLoginCount'] = failedLoginCount + 1
 			authInfo['loggedInSince'] = 0
 			#Dict['Authentication'] = authInfo
@@ -441,10 +428,10 @@ def isPremium(epType=None):
 	return False
 
 def Logout():
-	global loggedInSince, failedLoginCount
-	
-	
-	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
+	"""
+	Immediately log the user out and clear all authentication info.
+	"""
+	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
 	#this turns every permission off:
 	resetAuthInfo()
 
@@ -463,6 +450,7 @@ def CreatePrefs():
 	Prefs.Add(id='loginemail', type='text', default="", label='Login Email')
 	Prefs.Add(id='password', type='text', default="", label='Password', option='hidden')
 	Prefs.Add(id='quality', type='enum', values=["SD", "480P", "720P", "1080P", "Highest Available"], default="Highest Available", label="Quality")
+	Prefs.Add(id='video_source', type='enum', values=["Web Player", "Boxee Stream"], default="Boxee Stream", label="Video Source")
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
 	Prefs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
@@ -491,6 +479,17 @@ def ValidatePrefs():
 			"Please specify both a username and a password."
 			)
 		return mc
+	else:
+		# no username or password
+		Logout()
+		# FIXME: wow, I cannot log out! WTF?
+		HTTP.ClearCookies()
+		HTTP.ClearCache()
+		mc = MessageContainer("Success",
+			"Preferences Saved."
+			)
+		return mc
+
 
 
 def testCacheAll():
@@ -650,6 +649,9 @@ def addMediaTests(dir):
 			)
 		)
 def BrowseMenu(sender,type=None):
+	"""
+	Show menu for browsing content of type=ANIME_TYPE or DRAMA_TYPE
+	"""
 	if type==ANIME_TYPE:
 		all_icon = ANIME_ICON
 	elif type==DRAMA_TYPE:
@@ -657,14 +659,19 @@ def BrowseMenu(sender,type=None):
 		
 	dir = MediaContainer(disabledViewModes=["coverflow"], title1="Browse %s" % type)
 	dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
-	dir.Append(Function(DirectoryItem(PopularListMenu,"Popular" , title1="Popular", thumb=R(all_icon)), type=type))
-	#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent Anime" % type, thumb=R(all_icon)), type=type))
+	if type == ANIME_TYPE:
+		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular" , title1="Popular", thumb=R(all_icon)), type=type))
+
+	#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent Anime", thumb=R(all_icon)), type=type))
 	dir.Append(Function(DirectoryItem(GenreListMenu,"by Genre", title1="by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
-	
+	#dir.noCache = 1
 	return dir
 
 
 def AlphaListMenu(sender,type=None,query=None):
+	"""
+	Browse using the alphabet.
+	"""
 	if query is not None:
 		startTime = Datetime.Now()
 		if query=="#":
@@ -690,10 +697,19 @@ def AlphaListMenu(sender,type=None,query=None):
 
 
 def PopularListMenu(sender,type=None):
+	#FIXME: support drama popular, too?
 	startTime = Datetime.Now()
 	listRoot = BASE_URL + "/" + type.lower()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
-	seriesList = scrapper.getSeriesListFromFeed("anime_popular")
+	seriesList = []
+	if type==ANIME_TYPE:
+		seriesList = scrapper.getSeriesListFromFeed("anime_popular", sort=False) # list is by popularity
+	elif type==DRAMA_TYPE:
+		#FIXME: this returns an empty list.
+		seriesList = scrapper.getSeriesListFromFeed("drama_popular", sort=False)
+	else:
+		seriesList = []
+		
 	for series in seriesList:
 		dir.Append(makeSeriesItem(series))
 	dtime = Datetime.Now()-startTime
@@ -701,31 +717,35 @@ def PopularListMenu(sender,type=None):
 	return dir
 
 
-def GenreListMenu(sender,type=None,query=None):
+def GenreListMenu(sender,type=None,genre=None):
+	"""
+	Browse type of series (ANIME_TYPE or DRAMA_TYPE) by a genre key that
+	exists in DRAMA_GENRE_LIST or ANIME_GENRE_LIST
+	"""
 	#example: http://www.crunchyroll.com/boxee_feeds/genre_drama_romance
 	startTime = Datetime.Now()
 	genreList = ANIME_GENRE_LIST if type==ANIME_TYPE else DRAMA_GENRE_LIST
-	if query is not None:
-		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
+	if genre is not None:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=genre)
 		if type == ANIME_TYPE:
-			queryStr = genreList[query].replace('_', '%20')
+			queryStr = genreList[genre].replace('_', '%20')
 			feed = "anime_withtag/" + queryStr
 		else:
-			queryStr = genreList[query]
+			queryStr = genreList[genre]
 			feed = "genre_drama_" + queryStr
 			
 		seriesList = scrapper.getSeriesListFromFeed(feed)
 		for series in seriesList:
 			dir.Append(makeSeriesItem(series))
 		dtime = Datetime.Now()-startTime
-		Log.Debug("GenreListMenu %s (%s) execution time: %s"%(type, query, dtime))
+		Log.Debug("GenreListMenu %s (%s) execution time: %s"%(type, genre, dtime))
 	else:
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=sender.itemTitle)
 		keyList = genreList.keys()
 		keyList.sort()
 		for genre in keyList:
 			Log.Debug("genre: %s" % genre)
-			dir.Append(Function(DirectoryItem(GenreListMenu,"%s" % genre, thumb=R(CRUNCHYROLL_ICON)), type=type, query=genre))
+			dir.Append(Function(DirectoryItem(GenreListMenu,"%s" % genre, thumb=R(CRUNCHYROLL_ICON)), type=type, genre=genre))
 	return dir
 
 
@@ -746,6 +766,10 @@ def makeSeriesItem(series):
 	return seriesItem
 		
 def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
+	"""
+	show the episodes available for seriesId. Use seriesTitle for
+	the breadcrumb display.
+	"""
 	startTime = Datetime.Now()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=seriesTitle)
 	
@@ -789,6 +813,11 @@ def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
 import fanartScrapper
 
 def makeSeasonItem(season):
+	"""
+	Create a directory item showing a particular season in a series.
+	Seasons contain episodes, so this passes responsibility on to
+	SeasonMenu() to construct that list.
+	"""
 	art = R(CRUNCHYROLL_ART)
 	if Dict['series'][str(season['seriesId'])]['tvdbId'] is not None:
 		artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(season['seriesId'])]['tvdbId'], season['seasonnum'])
@@ -811,6 +840,9 @@ def makeSeasonItem(season):
 
 
 def SeasonMenu(sender,seriesId=None,season=None):
+	"""
+	Display a menu showing episodes available in a particular season.
+	"""
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
 	epList = scrapper.getSeasonEpisodeListFromFeed(seriesId, season)
 	for episode in epList:
@@ -819,6 +851,9 @@ def SeasonMenu(sender,seriesId=None,season=None):
 
 
 def QueueMenu(sender):
+	"""
+	Show series titles that the user has in her queue
+	"""
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
 	queueList = scrapper.getQueueList()
 	for queue in queueList:
@@ -828,6 +863,11 @@ def QueueMenu(sender):
 
 
 def makeQueueItem(queueInfo):
+	"""
+	construct a directory item for a series existing in user's queue.
+	Selecting this item leads to more details about the series, and the ability
+	to remove it from the queue.
+	"""
 	Log.Debug("queueinfo: %s" % queueInfo)
 	s = Dict['series']
 	sId = str(queueInfo['seriesId'])
@@ -844,6 +884,7 @@ def makeQueueItem(queueInfo):
 
 
 def QueuePopupMenu(sender, queueInfo):
+	#FIXME this is skipped for now, we go straight into QueueItemMenu
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])#, noCache=True)
 	ViewQueueItem = Function(DirectoryItem(QueueItemMenu, "View"), queueInfo=queueInfo)
 	RemoveSeries = Function(DirectoryItem(removeFromQueue, title="Remove from queue"), seriesId=queueInfo['seriesId'])
@@ -854,6 +895,11 @@ def QueuePopupMenu(sender, queueInfo):
 
 
 def QueueItemMenu(sender,queueInfo):
+	"""
+	show episodes in a queued series that are ready to watch. Also,
+	allow user to remove the series from queue or view the
+	entire series if she wishes.
+	"""
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True)
 	seriesurl = scrapper.seriesTitleToUrl(queueInfo['title'])
 	s = Dict['series']
@@ -884,6 +930,9 @@ def QueueItemMenu(sender,queueInfo):
 
 
 def getEpisodeArt(episode):
+	"""
+	return the best background art URL for the passed episode.
+	"""
 	seriesId = None
 	for sk in Dict['series'].keys():
 		if Dict['series'][str(sk)]['title']==episode['seriesTitle']:
@@ -990,9 +1039,18 @@ def makeEpisodeItem(episode):
 	return episodeItem
 
 def adultWarning(sender, rating=5):
+	"""
+	return a message container warning the user that she's about to 
+	try something naughty, and if she wants to do this naughty thing,
+	she must give herself permission to do it.
+	"""
 	return MessageContainer("Adult Content", "Cannot play mature content unless you change your preferences.")
 	
 def makeEpisodeSummary(episode):
+	"""
+	construct a string summarizing the episode using its metadata,
+	or just return the episode's description if needed.
+	"""
 	summary = ""
 	if episode['publisher'] != '':
 		summary = "%sPublisher: %s\n" % (summary, episode['publisher'])
@@ -1009,12 +1067,19 @@ def makeEpisodeSummary(episode):
 
 
 def removeFromQueue(sender,seriesId):
+	"""
+	remove seriesID from queue
+	"""
 	Login()
 	response = makeAPIRequest2("req=RpcApiUserQueue_Delete&group_id=%s"%seriesId)
+	#FIXME response should have meaning; do something here?
 	Log.Debug("remove response: %s"%response)
 	return MessageContainer("Success",'Removed from Queue')
 
 def addToQueue(sender,seriesId,url=None):
+	"""
+	Add seriesId to the queue.
+	"""
 	Login()
 	#FIXME url not needed?
 	Log.Debug("add mediaid: %s"%seriesId)
@@ -1076,6 +1141,10 @@ def getVideoUrl(videoInfo, resolution):
 
 
 def playVideoMenu(sender, episode):
+	"""
+	construct and return a MediaContainer that will ask the user
+	which resolution of video she'd like to play for episode
+	"""
 	startTime = Datetime.Now()
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	if len(episode['availableResolutions']) == 0:
@@ -1108,6 +1177,17 @@ def playVideoMenu(sender, episode):
 
 
 def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+	"""
+	The video has been chosen! Whew. Only thing left is to munge the URL so site configs
+	do the Right Thing, and redirect to WebVideoItem()
+	"""
+	# Current issues:
+	# Crunchyroll.com  pops up an ad on the web page and crashes PMS entirely. Welcome to the
+	# wonderful world of HTML 5 -- indestructable popups!
+	# I try to get around this by setting the cookie temp_ad_closed to 1 in site config,
+	# but I'm sure the situation will change with the wind; boxee stream is best
+	# choice ATM if crashing happens.
+	
 	theUrl = url
 	resolutions = scrapper.getAvailResFromPage(url)
 	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
@@ -1139,7 +1219,7 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 				theUrl = theUrl
 			else:
 				theUrl = match.group(2)
-	elif USE_BOXEE_STREAM:
+	elif Prefs['video_source'] == "Boxee Stream":
 		#req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 
 		# example: http://www.crunchyroll.com/angelic-layer/episode-26-454040?p480=1
@@ -1153,6 +1233,8 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 		theUrl = "http://www.crunchyroll.com/boxee_showmedia/%s&amp;bx-ourl=http://www.crunchyroll.com/%s/%s" % (id, name, mediapath)
 
 		req = HTTP.Request(theUrl, immediate=True, cacheTime=0, encoding='utf8')
+
+		#FIXME use xpath instead of re.search()
 		m = re.search(r'\'video_player\',\'([^\']+)\', *\'([^\']+)\'', req.content, re.MULTILINE) ;m
 
 		if m:
@@ -1166,6 +1248,8 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 	Log.Debug("##########final URL is '%s'" % theUrl)
 	Log.Debug("##########duration: %s" % str(duration))
 	
+	#req = HTTP.Request(theUrl, immediate=True, cacheTime=0)
+	#Log.Debug(req.content)
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
 
@@ -1196,16 +1280,44 @@ def debugFeedItem(item):
 
 
 def msToRuntime(ms):
-	
-    if ms is None or ms <= 0:
-        return None
+	"""
+	convert miliseconds into a time string in the form
+	HH:MM:SS
+	"""
+	if ms is None or ms <= 0:
+		return None
 		
-    ret = []
+	ret = []
 	
-    sec = int(ms/1000) % 60
-    min = int(ms/1000/60) % 60
-    hr  = int(ms/1000/60/60)
+	sec = int(ms/1000) % 60
+	min = int(ms/1000/60) % 60
+	hr  = int(ms/1000/60/60)
 	
-    return "%02d:%02d:%02d" % (hr,min,sec)
+	return "%02d:%02d:%02d" % (hr,min,sec)
 
-	
+########## OLD STUFF FOR REFERENCE OR REVERT ####
+def LoginAtStart_old():
+	global GlobalWasLoggedIn
+	global AnimePremium
+	global DramaPremium
+	#HTTP.ClearCookies() # FIXME put this back in after debugging
+	if LoginNotBlank():
+		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
+		response = makeAPIRequest(data)
+		Log.Debug("loginResponse:%s"%response)
+		response = JSON.ObjectFromString(response)
+		GlobalWasLoggedIn = (response.get('result_code') == 1)
+		if GlobalWasLoggedIn:
+			AnimePremium = (response.get('data').get('premium').get(PREMIUM_TYPE_ANIME) == 1)
+			DramaPremium = (response.get('data').get('premium').get(PREMIUM_TYPE_DRAMA) == 1)
+	return GlobalWasLoggedIn
+
+
+def LoggedIn_old():
+	return GlobalWasLoggedIn
+
+
+def Login_old():
+	if LoginNotBlank():
+		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
+		response = makeAPIRequest(data)

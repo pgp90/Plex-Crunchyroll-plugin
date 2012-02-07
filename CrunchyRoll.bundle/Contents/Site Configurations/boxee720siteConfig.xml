@@ -6,6 +6,8 @@
 <site site="http://.*.crunchyroll.com/boxee_showmedia/.*__qual=720"
 	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 	initialState="playing" version="2.0">
+
+	<setCookie domain=".crunchyroll.com" path="/" name="temp_ad_closed" value="1" />
 	
 	<crop x="0" y="0" width="0" height="0"/>
 	<seekbar type="javascript">
