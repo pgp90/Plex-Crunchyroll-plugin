@@ -467,11 +467,15 @@ def getEpisodeListFromFeed(feed):
 		Log.Error("#####We got ourselves a dagnabbit exception:")
 		Log.Error(repr(Exception) + repr(arg))
 		Log.Error("feed: %s" % feed)
+		Log.Error("Content:")
+		Log.Error(req.content)
 		# maybe just pass the exception up the chain here
 		# instead of returning None
 		return None
 
-
+def getEpisodeListFromQuery(queryString):
+	return getEpisodeListFromFeed(SEARCH_URL+queryString.strip().replace(' ', '%20'))
+	
 def formateEpList(epList,hasSeasons):
 	sortedEpList = sorted(epList, key=lambda k: k['episodeNum'])
 	output = {}

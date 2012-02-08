@@ -8,6 +8,12 @@ ENABLE_DEBUG_MENUS = True
 
 BASE_URL                     = "http://www.crunchyroll.com"
 
+# boxee search requires extra code, rss search returns less results,
+# boxee feed has duration info.
+# potatoh, potatah
+SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
+#SEARCH_URL                   = "http://www.crunchyroll.com/boxee_feeds/search?q="
+
 CRUNCHYROLL_PLUGIN_PREFIX    = "/video/CrunchyRoll"
 CRUNCHYROLL_ART              = 'art-default3.jpg'
 CRUNCHYROLL_ICON             = 'icon-default.png'
@@ -15,6 +21,7 @@ CRUNCHYROLL_ICON             = 'icon-default.png'
 ANIME_ICON                   = CRUNCHYROLL_ICON#'icon-anime.png'
 DRAMA_ICON                   = CRUNCHYROLL_ICON#'icon-drama.png'
 QUEUE_ICON                   = CRUNCHYROLL_ICON#'icon-queue.png'
+SEARCH_ICON                  = CRUNCHYROLL_ICON # FIXME: there has to be a standard search icon somewhere...
 
 PREFS_ICON                   = 'icon-prefs.png'
 DEBUG_ICON                   = PREFS_ICON
@@ -301,7 +308,7 @@ def LoggedIn():
 		
 	AnimePremium, DramaPremium = False, False
 	
-	req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", cacheTime=0)
+	req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", immediate=True, cacheTime=0)
 	authorized = False
 	if "Profile Information" in req.content:
 		authorized = True
@@ -360,6 +367,7 @@ def Login(force=False):
 		Log.Debug("#########Well\n forced is %s and loggedInTime is %f" % (repr(force), time.time() - authInfo['loggedInSince']) )
 		if force: 
 			HTTP.ClearCookies()
+			killSafariCookies()
 			authInfo['loggedInSince'] = 0
 			authInfo['failedLoginCount'] = 0
 			#Dict['Authentication'] = authInfo
@@ -377,16 +385,20 @@ def Login(force=False):
 			Log.Debug("########WEB LOGIN CHECK FAILED, MUST LOG IN AGAIN")
 
 		# if we reach here, we must manually log in.
+		if not force:
+			#save about 2 seconds
+			killSafariCookies()
+			HTTP.ClearCookies()
 		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
 		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
-		HTTP.Headers['Cookie'] = HTTP.CookiesForURL('https://www.crunchyroll.com/')
+		HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
 
 		#check it
 		if LoggedIn():
 			authInfo['loggedInSince'] = time.time()
 			authInfo['failedLoginCount'] = 0
 			#Dict['Authentication'] = authInfo
-
+			transferCookiesToSafari()
 			return True
 		else:
 			Log.Error("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
@@ -437,6 +449,11 @@ def Logout():
 	Immediately log the user out and clear all authentication info.
 	"""
 	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
+	
+	# tell plex who's boss
+	HTTP.ClearCookies()
+	killSafariCookies()
+	
 	#this turns every permission off:
 	resetAuthInfo()
 
@@ -561,6 +578,7 @@ def TopMenu():
 		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
+	dir.Append(Function(InputDirectoryItem(SearchMenu, "Search...", thumb=R(SEARCH_ICON), prompt=L("Search for videos..."), ART=R(CRUNCHYROLL_ART))))
 
 	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
 	if ENABLE_DEBUG_MENUS:
@@ -587,7 +605,7 @@ def DumpInfo(sender):
 
 	debugDict()
 	Log.Debug("###########CURRENT COOKIES")
-	Log.Debug(HTTP.CookiesForURL(BASE_URL))
+	Log.Debug(HTTP.GetCookiesForURL(BASE_URL))
 	return MessageContainer("Whew", "Thanks for dumping on me.")
 
 def ClearAllData(sender):
@@ -609,6 +627,8 @@ def LogoutFromMenu(sender):
 		dir = MessageContainer("Logout", "You are now logged out")
 	else:
 		dir = MessageContainer("Logout Failure", "Nice try, but logout failed.")
+		Log.Debug("####LOGOUT FAILED, HERE'S YOUR COOKIE")
+		Log.Debug(HTTP.GetCookiesForURL(BASE_URL) )
 
 	return dir
 
@@ -709,6 +729,25 @@ def addMediaTests(dir):
 			summary="This is an RTMPE stream. It shouldn't play, but if it does it should show ads and fit the borders." 
 			)
 		)
+
+def SearchMenu(sender, query=""):
+	"""
+	search boxee_feeds and return results in a media container
+	"""
+	episodeList = scrapper.getEpisodeListFromQuery(query)
+	if episodeList:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
+		for episode in episodeList:
+			#Log.Debug("#################################\n")
+			#Log.Debug(episode)
+			if episode.has_key('seriesTitle') and episode['seriesTitle'].lower() not in episode['title'].lower():
+				episode['title'] = episode['seriesTitle'] + ": " + episode['title']
+			dir.Append(makeEpisodeItem(episode))
+	else:
+		dir = MessageContainer("Nothing Found", "Could not find what you were looking for. Apologies.")
+	
+	return dir	
+	
 def BrowseMenu(sender,type=None):
 	"""
 	Show menu for browsing content of type=ANIME_TYPE or DRAMA_TYPE
@@ -1101,7 +1140,8 @@ def makeEpisodeSummary(episode):
 	construct a string summarizing the episode using its metadata,
 	or just return the episode's description if needed.
 	"""
-	summary = ""
+	# using inverted pyramid strategy; more detail at bottom of description
+	summary = episode['description'] + "\n\n"
 	if episode['publisher'] != '':
 		summary = "%sPublisher: %s\n" % (summary, episode['publisher'])
 	if episode['season'] != '':
@@ -1110,8 +1150,7 @@ def makeEpisodeSummary(episode):
 		summary = "%sKeywords: %s\n" % (summary, episode['keywords'])
 	if summary != '':
 		summary = "%s\n%s" % (summary, episode['description'])
-	else:
-		summary = episode['description']
+
 	#Log.Debug(summary)
 	return summary
 
@@ -1325,39 +1364,73 @@ def killSafariCookies():
 		
 	plistlib.writePlist(theSavedList, filename)
 
+
+def transferCookiesToPlex():
+	"""
+	grab all crunchyroll.com cookies from Safari
+	and transfer them to Plex. You shouldn't do this
+	because Plex needs to be the master to
+	keep the cookie situation <= fubar.
+	"""
+	import os.path, plistlib
+	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+	try:
+		theList = plistlib.readPlist(filename)
+	except IOError:
+		#hm, okay, whatev, no file or gimpiness, let's bail
+		return
+		
+	cookieList = []
+	for item in theList:
+		if "crunchyroll.com" in item['Domain']:
+			cookieList.append(item)
+	
+	s = SimpleCookie()
+	for cookie in cookieList:
+		#FIXME: should I bother?
+		pass
+
 def transferCookiesToSafari():
 	"""
-	Move all crunchyroll cookies from Plex's cookie storage
+	Copy all crunchyroll cookies from Plex's cookie storage
 	into Safari's Plist
 	"""
 	from Cookie import BaseCookie
 	import plistlib
 	from datetime import datetime, timedelta
-	cookieString = HTTP.CookiesForURL(BASE_URL)
+	cookieString = HTTP.GetCookiesForURL(BASE_URL)
 	if not cookieString: return True
 
-	theCookies = BaseCookie(cookieString)
-	appendThis = []
-	tomorrow = datetime.now() + timedelta((1))
-	for k, v in theCookies.items():
-		#Plex doesn't supply these, so:
-		cookieDict = {'Domain':".crunchyroll.com", 
-			'Path':"/", 
-			'Expires': tomorrow, 
-			'Created': time.time(),
-			'Name': k,
-			'Value': v.value
-		}
-		appendThis.append(cookieDict)
-	Log.Debug("#######Transferring these cookies:")
-	Log.Debug(appendThis)
+	try:
+		theCookies = BaseCookie(cookieString)
+		appendThis = []
+		tomorrow = datetime.now() + timedelta((1))
+		for k, v in theCookies.items():
+			#Plex doesn't supply these, so:
+			cookieDict = {'Domain':".crunchyroll.com", 
+				'Path':"/", 
+				'Expires': tomorrow, 
+				'Created': time.time(),
+				'Name': k,
+				'Value': v.value
+			}
+			appendThis.append(cookieDict)
+		Log.Debug("#######Transferring these cookies:")
+		Log.Debug(appendThis)
+		
+		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+		theList = plistlib.readPlist(filename)
+		theList.extend(appendThis)
+		#FIXME: This does not remove previous values!
+		# removing previous values takes time, so some cleverness might
+		# be in order
+		plistlib.writePlist(theList, filename)
+		return True
+	except Exception, arg:
+		Log.Debug("#########transferCookiesToSafari() Exception occured:")
+		Log.Debug(repr(Exception) + " " + repr(arg))
+		return False
 	
-	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-	theList = plistlib.readPlist(filename)
-	theList.extend(appendThis)
-	plistlib.writePlist(theList, filename)
-	return True
-
 def listElt(url):
 	page = HTML.ElementFromURL(url)
 	for a in list(page):
