@@ -565,20 +565,29 @@ def TopMenu():
 	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
 	if ENABLE_DEBUG_MENUS:
 		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON))) )
-	#dir.nocache = 1
+	if ENABLE_DEBUG_MENUS:
+		dir.noCache = 1 
 	
 	return dir
 
 def DebugMenu(sender):
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	dir.Append(Function(DirectoryItem(DumpInfo, "Dump info to console")) )
-	dir.Append(Function(DirectoryItem(ClearAllData, "Clear all data")) )
+	dir.Append(Function(DirectoryItem(ClearAllData, "Clear all data", summary="This removes cached metadata, and plex's cookies and cache. Prefs will still exist.")) )
 	dir.Append(Function(DirectoryItem(VideoTestMenu, "Test Videos...")) )
+	dir.Append(Function(DirectoryItem(LogoutFromMenu, "Logout now")) )
+	dir.Append(Function(DirectoryItem(LoginFromMenu, "Login now")) )
+	dir.Append(Function(DirectoryItem(ClearCookiesItem, "Clear Cookies", summary="This will remove the cookies from Plex's internal cookie storage.")) )
+	dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
+	dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
 	
 	return dir
 
 def DumpInfo(sender):
+
 	debugDict()
+	Log.Debug("###########CURRENT COOKIES")
+	Log.Debug(HTTP.CookiesForURL(BASE_URL))
 	return MessageContainer("Whew", "Thanks for dumping on me.")
 
 def ClearAllData(sender):
@@ -591,6 +600,46 @@ def ClearAllData(sender):
 #	CreatePrefs()
 	return MessageContainer("Huzzah", "You are now sparklie clean.")
 
+def LogoutFromMenu(sender):
+	"""
+	logout and return a message container with the result
+	"""
+	Logout()
+	if not LoggedIn():
+		dir = MessageContainer("Logout", "You are now logged out")
+	else:
+		dir = MessageContainer("Logout Failure", "Nice try, but logout failed.")
+
+	return dir
+
+def LoginFromMenu(sender):
+	if not Prefs['username'] or not Prefs['password']:
+		dir = MessageContainer("Login Brain Fart", "You cannot login because your username or password are blank.")
+	else:
+		result = Login(force = True)
+		if not result:
+			dir = MessageContainer("Auth failed", "Authentication failed at crunchyroll.com")
+		elif isPremium():
+			dir = MessageContainer("Login", "You are logged in, congrats.")
+		else:
+			dir = MessageContainer("Login Failure", "Sorry, bro, you didn't login!")
+		
+	return dir
+
+def ClearCookiesItem(sender):
+	HTTP.ClearCookies()
+	return MessageContainer("Cookies Cleared", "For whatever it's worth, cookies are gone now.")
+
+def KillSafariCookiesItem(sender):
+	killSafariCookies()
+	return MessageContainer("Cookies Cleared", "All cookies from crunchyroll.com have been removed from Safari")
+
+def TransferCookiesItem(sender):
+	if transferCookiesToSafari():
+		return MessageContainer("Cookies Transferred.", "Done.")
+	else:
+		return MessageContainer("Transfer Failed.", "Nastiness occured, check the console.")
+	
 def ConstructTestVideo(episode)	:
 	episodeItem = \
 		WebVideoItem(url=episode['link'],
@@ -615,33 +664,33 @@ def addMediaTests(dir):
 		testEpisodes = [
 			{'title': 'Bleach Episode 1',
 			 'season': 'One',
-			 'summary': "480p Boxee feed. This needs a premium account. Plex client should show a resolution of 720x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "480p Boxee feed. This needs a premium account. No ads should show! Plex client should show a resolution of 720x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/543611&amp;bx-ourl=http://www.crunchyroll.com/bleach/543611',
 			 'mediaId': '543611',
 			},
 
 			{'title': 'Gintama 187',
 			 'season': 'None',
-			 'summary': "720p Boxee feed. This needs a premium account. Plex client should show a resolution of 1280x720, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "720p Boxee feed. This needs a premium account. No ads should show! Plex client should show a resolution of 1280x720, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/537056&amp;bx-ourl=http://www.crunchyroll.com/gintama/537056',
 			 'mediaId': '537056',
 			},
 			{'title': 'Bleach Episode 357',
 			 'season': 'None',
-			 'summary': "1080p Boxee feed. This needs a premium account. Plex client should show a resolution of exactly 1920x1080, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "1080p Boxee feed. This needs a premium account. No ads should show! Plex client should show a resolution of exactly 1920x1080, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/588328&amp;bx-ourl=http://www.crunchyroll.com/bleach/588328',
 			 'mediaId': '588328',
 			},
 			{'title': 'Blue Exorcist Trailer',
 			  'season': 'None',
-			  'summary': '480p web page version. This needs a premium account. Plex client should show a resolution of 720x478, must not have black edges on top or bottom. Play, pause, and seek should work.',
+			  'summary': '480p web page version. This needs a premium account. No ads should show! Plex client should show a resolution of 720x478, must not have black edges on top or bottom. Play, pause, and seek should work.',
 			  'link': 'http://www.crunchyroll.com/blue-exorcist/-blue-exorcist-blue-exorcist-official-trailer-577928?p480=1&small=0&wide=0',
 			  'mediaId': "577928"
 			},
-			{'title': 'Blue Exorcist Trailer 360p',
+			{'title': 'Blue Exorcist Episode 1',
 			  'season': 'None',
-			  'summary': '360p web page version.  You really should log out to test this.',
-			  'link': 'http://www.crunchyroll.com/blue-exorcist/-blue-exorcist-blue-exorcist-official-trailer-577928?p360=1&small=1&wide=0',
+			  'summary': '360p web page version.  You really should log out to test this. You should get ads. Plex client should show resolution of ...',
+			  'link': 'http://www.crunchyroll.com/blue-exorcist/episode-1-the-devil-resides-in-human-souls-573636?p360=1&small=1&wide=0',
 			  'mediaId': "577928"
 			}
 		]
@@ -920,17 +969,6 @@ def QueueItemMenu(sender,queueInfo):
 	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
 	if queueInfo['epToPlay'] is not None:
 		nextEp = scrapper.getEpInfoFromLink(queueInfo['epToPlay'])
-#		PlayNext = Function(
-#			PopupDirectoryItem(
-#				playVideoMenu,
-#				title="Play Next Episode",
-#				subtitle=nextEp['title'],
-#				summary=makeEpisodeSummary(nextEp),
-#				thumb=Function(getThumb,url=nextEp['thumb']),
-#				art=Function(getArt,url=art)
-#			),
-#			episode=nextEp
-#		)
 		PlayNext = makeEpisodeItem(nextEp)
 		dir.Append(PlayNext)
 	RemoveSeries = Function(DirectoryItem(removeFromQueue, title="Remove series from queue"), seriesId=sId)
@@ -1264,6 +1302,61 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 	#Log.Debug(req.content)
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 
+def killSafariCookies():
+	"""
+	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
+	and save the result.
+	"""
+	import os.path, plistlib
+	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+	try:
+		theList = plistlib.readPlist(filename)
+	except IOError:
+		#hm, okay, whatev, no file or gimpiness, let's bail
+		return
+		
+	theSavedList = []
+	for item in theList:
+		if not "crunchyroll.com" in item['Domain']:
+			theSavedList.append(item)
+		else:
+			Log.Debug("######removing cookie:")
+			Log.Debug(item)
+		
+	plistlib.writePlist(theSavedList, filename)
+
+def transferCookiesToSafari():
+	"""
+	Move all crunchyroll cookies from Plex's cookie storage
+	into Safari's Plist
+	"""
+	from Cookie import BaseCookie
+	import plistlib
+	from datetime import datetime, timedelta
+	cookieString = HTTP.CookiesForURL(BASE_URL)
+	if not cookieString: return True
+
+	theCookies = BaseCookie(cookieString)
+	appendThis = []
+	tomorrow = datetime.now() + timedelta((1))
+	for k, v in theCookies.items():
+		#Plex doesn't supply these, so:
+		cookieDict = {'Domain':".crunchyroll.com", 
+			'Path':"/", 
+			'Expires': tomorrow, 
+			'Created': time.time(),
+			'Name': k,
+			'Value': v.value
+		}
+		appendThis.append(cookieDict)
+	Log.Debug("#######Transferring these cookies:")
+	Log.Debug(appendThis)
+	
+	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+	theList = plistlib.readPlist(filename)
+	theList.extend(appendThis)
+	plistlib.writePlist(theList, filename)
+	return True
 
 def listElt(url):
 	page = HTML.ElementFromURL(url)
