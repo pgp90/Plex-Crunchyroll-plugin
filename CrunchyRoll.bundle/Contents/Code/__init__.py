@@ -104,7 +104,7 @@ DRAMA_GENRE_LIST = {
 JUST_USE_WIDE = False
 CHECK_PLAYER = False
 SPLIT_LONG_LIST = True
-DIRECT_GRAB = False # grab the .swf file directly (buggy, but higher res)
+#DIRECT_GRAB = True # grab the .swf file directly (buggy, but higher res), now a pref
 
 # at the moment Boxee streams only display at 720p. SD content is upscaled, 1080p is downscaled.
 # however, this is still a higher res than you'll get with the webkit, and the stream
@@ -180,6 +180,10 @@ def debugDict():
 		Log.Debug(Dict[key])
 
 def getThumb(url,tvdbId=None):
+	"""
+	Try to find a better thumb than the one provided via url.
+	The thumb data returned is either an URL or the image data itself.
+	"""
 	ret = None
 	if (tvdbId is not None and Prefs['fanart'] is True):
 		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
@@ -307,8 +311,13 @@ def LoggedIn():
 		resetAuthInfo()
 		
 	AnimePremium, DramaPremium = False, False
+	try:
+		req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", immediate=True, cacheTime=0)
+	except Exception, arg:
+		Log.Error("####Error checking status:")
+		Log.Error(repr(Exception) + " "  + repr(arg))
+		return False
 	
-	req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", immediate=True, cacheTime=0)
 	authorized = False
 	if "Profile Information" in req.content:
 		authorized = True
@@ -389,10 +398,15 @@ def Login(force=False):
 			#save about 2 seconds
 			killSafariCookies()
 			HTTP.ClearCookies()
-		data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-		req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
-		HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
-
+		try:
+			data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
+			req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
+			HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
+		except Exception, arg:
+			Log.Error("####Sorry, an error occured when logging in:")
+			Log.Error(repr(Exception) + " "  + repr(arg))
+			return False
+			
 		#check it
 		if LoggedIn():
 			authInfo['loggedInSince'] = time.time()
@@ -472,7 +486,7 @@ def CreatePrefs():
 	Prefs.Add(id='loginemail', type='text', default="", label='Login Email')
 	Prefs.Add(id='password', type='text', default="", label='Password', option='hidden')
 	Prefs.Add(id='quality', type='enum', values=["SD", "480P", "720P", "1080P", "Highest Available"], default="Highest Available", label="Quality")
-	Prefs.Add(id='video_source', type='enum', values=["Web Player", "Boxee Stream"], default="Boxee Stream", label="Video Source")
+	Prefs.Add(id='video_source', type='enum', values=["Web Player", "Boxee Stream", "Direct"], default="Boxee Stream", label="Video Source")
 	Prefs.Add(id='thumb_quality', type='enum', values=["Low", "Medium", "High"], default="High", label="Thumbnail Quality")
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
 	Prefs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
@@ -503,13 +517,16 @@ def ValidatePrefs():
 		return mc
 	else:
 		# no username or password
-		Logout()
-		# FIXME: wow, I cannot log out! WTF?
-		HTTP.ClearCookies()
-		HTTP.ClearCache()
-		mc = MessageContainer("Success",
-			"Preferences Saved."
-			)
+		try:
+			Logout()
+		except: pass
+		
+		if Prefs['quality'] != "SD" and Prefs['quality'] != "Highest Available":
+			mc = MessageContainer("Quality Warning", "Only premium members can watch in high definition. Your videos will show in standard definiton only.")
+		else:
+			mc = MessageContainer("Success",
+				"Preferences Saved."
+				)
 		return mc
 
 
@@ -584,7 +601,8 @@ def TopMenu():
 	if ENABLE_DEBUG_MENUS:
 		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON))) )
 	if ENABLE_DEBUG_MENUS:
-		dir.noCache = 1 
+		# dir.noCache = 0 # ad hoc
+		pass
 	
 	return dir
 
@@ -710,9 +728,17 @@ def addMediaTests(dir):
 			{'title': 'Blue Exorcist Episode 1',
 			  'season': 'None',
 			  'summary': '360p web page version.  You really should log out to test this. You should get ads. Plex client should show resolution of ...',
-			  'link': 'http://www.crunchyroll.com/blue-exorcist/episode-1-the-devil-resides-in-human-souls-573636?p360=1&small=1&wide=0',
+			  'link': 'http://www.crunchyroll.com/blue-exorcist/episode-1-the-devil-resides-in-human-souls-573636?p360=1&small=0&wide=0',
 			  'mediaId': "577928"
+			},
+			{'title': "Bleach 274 1080p",
+			'season': 'None',
+			'summary': "1080p direct stream. You need to log in and have your preference at CR.com set to view 1080p. No ads should show. Plex should report a resolution of 1920x1080. There MIGHT be small black bars at top and bottom due to ratio difference (but really shouldn't happen). Seek, play and pause should work.",
+			'link': "http://www.crunchyroll.com/swf/vidplayer.swf?config_url=http%3A%2F%2Fwww.crunchyroll.com%2Fxml%2F%3Freq%3DRpcApiVideoPlayer_GetStandardConfig%26media_id%3D542596%26video_format%3D0%26video_quality%3D0%26auto_play%3D1%26click_through%3D1&__qual=1080",
+			'mediaId': '542596'
 			}
+			
+			
 		]
 		
 
@@ -758,7 +784,12 @@ def BrowseMenu(sender,type=None):
 		all_icon = DRAMA_ICON
 		
 	dir = MediaContainer(disabledViewModes=["coverflow"], title1="Browse %s" % type)
-	dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
+	
+	if type== ANIME_TYPE:
+		dir.Append(Function(DirectoryItem(AlphaListMenu,"All (not working, sry)", title1="All", thumb=R(all_icon)), type=type))
+	else:
+		dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
+	
 	if type == ANIME_TYPE:
 		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular" , title1="Popular", thumb=R(all_icon)), type=type))
 
@@ -1229,6 +1260,52 @@ def getVideoUrl(videoInfo, resolution):
 	return url
 
 
+def constructMediaObject(episode):
+	"""
+	Construct media objects from an episode.
+	"""
+	if True or len(episode['availableResolutions']) == 0:
+		episode['availableResolutions'] = scrapper.getAvailResFromPage(episode['link'])
+		Log.Debug("####available resolutions:")
+		Log.Debug(episode['availableResolutions'])
+		# FIXME I guess it's better to have something than nothing? It was giving Key error
+		# on episode number
+		if str(episode['mediaId']) not in Dict['episodes']:
+			Dict['episodes'][str(episode['mediaId'])] = episode
+	
+		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
+	
+	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
+	videoInfo['small'] = isPremium(episode['type']) is False
+	
+	epsObject = EpisodeObject(
+		url = videoInfo['baseUrl'], #dunno if this will work
+		title = episode['title'],
+		summary = episode['description']
+	)
+
+	for q in episode['availableResolutions']:
+
+		mo = MediaObject(
+				# duration = episode['duration'], #grr stupid duration isn't available w/o extra fetch
+				video_resolution = q,
+				protocol = Protocol.WebKit,
+				parts = [
+					PartObject(				
+						key = WebVideoURL(getVideoUrl(videoInfo, q))
+					)
+				]
+			)
+		epsObject.add(mo)
+	dir = ObjectContainer( objects = [epsObject])
+	return dir
+
+def playVideoMenu2(sender, episode):
+	"""
+	use more code to accomplish less.
+	"""
+	return constructMediaObject(episode)
+	
 def playVideoMenu(sender, episode):
 	"""
 	construct and return a MediaContainer that will ask the user
@@ -1264,8 +1341,63 @@ def playVideoMenu(sender, episode):
 	Log.Debug("playVideoMenu (%s) execution time: %s"%(episode['title'], dtime))
 	return dir
 
-
 def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+	if Prefs['video_source'] == "Direct" and isPremium():
+		return PlayVideoPremium(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+	else:
+		return PlayVideoFreebie(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+
+def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+	# mkayy, new strategy. It's difficult to know how to acheive 1080p with boxee (or web player!). 
+	# It's really easy to set resolution with direct grab of stream.
+	# Only premium members get better resolutions.
+	# so the solution is to have 2 destinations: freebie (web player), or premium (direct).
+	
+	theUrl = url
+	resolutions = scrapper.getAvailResFromPage(url)
+	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
+	vidInfo['small'] = 0
+	duration = vidInfo['duration'] # need this because duration isn't known until now
+
+	bestRes = 360
+
+	if Prefs['quality'] == "Ask":
+		m = re.search(r'\?p(\d+)', url)
+		if m:
+			bestRes = m.group(1)
+	else:	
+		bestRes = scrapper.getPrefRes(resolutions)
+	
+	bestRes = int(bestRes)
+	
+	Log.Debug("Best res: " + str(bestRes))
+	
+	if isPremium(): # direct stream for premium users
+		# FIXME: have to account for drama vs anime premium!
+		req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
+		#Log.Debug("###########")
+		#Log.Debug(req.content)
+
+		match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+		if not match:
+			# bad news
+			Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+			theUrl = theUrl
+		else:
+			theUrl = match.group(2)	+ "&__qual=" + str(bestRes)
+	else: # web player
+		Log.Debug("#######Using web player")
+		if modifyUrl is True:
+			theUrl = getVideoUrl(vidInfo, bestRes)
+
+	Log.Debug("##########final URL is '%s'" % theUrl)
+	Log.Debug("##########duration: %s" % str(duration))
+	
+	#req = HTTP.Request(theUrl, immediate=True, cacheTime=0)
+	#Log.Debug(req.content)
+	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
+	
+def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
 	"""
 	The video has been chosen! Whew. Only thing left is to munge the URL so site configs
 	do the Right Thing, and redirect to WebVideoItem()
@@ -1287,6 +1419,8 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
 		bestRes = scrapper.getPrefRes(resolutions)
 		theUrl = getVideoUrl(vidInfo, bestRes)
+
+
 	# theUrl = theUrl + "&small=1"
 
 
@@ -1295,7 +1429,7 @@ def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modify
 	#<link rel="video_src" href="http://www.crunchyroll.com/swf/vidplayer.swf?config_url=http%3A%2F%2Fwww.crunchyroll.com%2Fxml%2F%3Freq%3DRpcApiVideoPlayer_GetStandardConfig%26media_id%3D591521%26video_format%3D0%26video_quality%3D0%26auto_play%3D1%26click_through%3D1" />
 
 	
-	if DIRECT_GRAB:
+	if Prefs['video_source'] == "Direct":
 		if isPremium(): # only premium users should grab directly
 			req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 			#Log.Debug("###########")

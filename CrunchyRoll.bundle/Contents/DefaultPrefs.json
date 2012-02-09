@@ -24,7 +24,7 @@
 		"id": "video_source",
 		"type": "enum",
 		"label": "Video Source",
-		"values": ["Web Player", "Boxee Stream"],
+		"values": ["Web Player", "Boxee Stream", "Direct"],
 		"default": "Boxee Stream"
 	},
 	{

@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<site site="http://.*.crunchyroll.com" 
+plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
+initialState="playing" version="2.0">
+
+	<setCookie domain=".crunchyroll.com" path="/" name="temp_ad_closed" value="1" /> 
+
+<!-- this plays all freebie content well. -->
+
+<!-- garbage heap
+plugin="http://static.lln.crunchyroll.com/flash/20111227190142.0fa282dfa08cb851004372906bfd7e14/StandardVideoPlayer.swf.*"
+
+-->
+<!-- current dimensions of freebie player at site: 614x360, 32 pixels for playbar -->
+<!-- this crops it to 16:9 -->
+	<crop x="17" y="0" width="580" height="-32"/>
+	<seekbar type="thumb">
+		<start x="82" y="358"/>
+		<end x="334" y="358"/>
+		<played>
+			<color rgb="ffffff"/>
+		</played>
+	</seekbar>
+	
+	<state name="playing">
+		<event>
+			<condition>
+				<command name="pause"/>
+			</condition>
+			<action>
+				<click x="312" y="206"/>
+				<goto state="paused"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="8" y="8" rgb="555555"/>
+			</condition>
+			<action>
+				<goto state="playing" />
+			</action>
+		</event>
+	</state>
+	<!-- this is for later when i figure out how to support it -->
+	<state name="ad_playing">
+		<event>
+			<condition>
+				<or>
+					<color x="19" y="365" rgb="ffffff"/>
+					<not>
+						<color x="8" y="8" rgb="555555"/>
+					</not>
+				</or>				
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+	</state>
+
+	<state name="paused">
+		<event>
+			<condition>
+					<command name="play"/>
+			</condition>
+			<action>
+				<click x="312" y="206"/>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<or>
+					<color x="19" y="365" rgb="808080"/>
+					<color x="19" y="365" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="8" y="8" rgb="555555"/>
+			</condition>
+			<action>
+				<goto state="playing" />
+			</action>
+		</event>
+	</state>
+	
+</site>
