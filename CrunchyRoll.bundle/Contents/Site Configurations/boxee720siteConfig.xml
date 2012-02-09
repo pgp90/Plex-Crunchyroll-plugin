@@ -5,7 +5,8 @@
 -->
 <site site="http://.*.crunchyroll.com/boxee_showmedia/.*__qual=720"
 	plugin="http://static..*.crunchyroll.com/flash/.*/.*StandardVideoPlayer.swf.*"
-	initialState="playing" version="2.0">
+	initialState="playing" version="2.0"
+	>
 
 	<setCookie domain=".crunchyroll.com" path="/" name="temp_ad_closed" value="1" /> 
 	
@@ -17,7 +18,6 @@
 		<end condition="$.getPlayhead() &gt; 0 &amp;&amp; $.getPlayhead() &gt; $.getDuration()"/>
 	</seekbar>
 
-	
 	<state name="playing">
 		<event>
 			<condition>
