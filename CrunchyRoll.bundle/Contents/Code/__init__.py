@@ -1,183 +1,12 @@
-import string
-import time
+from constants import *
+import api
 import re
-import os
-import urllib
-
-ENABLE_DEBUG_MENUS = True
-
-BASE_URL                     = "http://www.crunchyroll.com"
-
-# boxee search requires extra code, rss search returns less results,
-# boxee feed has duration info.
-# potatoh, potatah
-SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
-#SEARCH_URL                   = "http://www.crunchyroll.com/boxee_feeds/search?q="
-
-CRUNCHYROLL_PLUGIN_PREFIX    = "/video/CrunchyRoll"
-CRUNCHYROLL_ART              = 'art-default3.jpg'
-CRUNCHYROLL_ICON             = 'icon-default.png'
-
-ANIME_ICON                   = CRUNCHYROLL_ICON#'icon-anime.png'
-DRAMA_ICON                   = CRUNCHYROLL_ICON#'icon-drama.png'
-QUEUE_ICON                   = CRUNCHYROLL_ICON#'icon-queue.png'
-SEARCH_ICON                  = CRUNCHYROLL_ICON # FIXME: there has to be a standard search icon somewhere...
-
-PREFS_ICON                   = 'icon-prefs.png'
-DEBUG_ICON                   = PREFS_ICON
-
-FEED_BASE_URL                = "http://www.crunchyroll.com/boxee_feeds/"
-LATEST_SHOWS_RSS             = "http://feeds.feedburner.com/crunchyroll/rss"
-THUMB_QUALITY                = {"Low":"_medium","Medium":"_large","High":"_full"}
-VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720", "1080P":"1080"}
-
-LAST_PLAYER_VERSION = "20111130163346.fb103f9787f179cd0f27be64da5c23f2"
-PREMIUM_TYPE_ANIME = '2'
-PREMIUM_TYPE_DRAMA = '4'
-ANIME_TYPE = "Anime"
-DRAMA_TYPE = "Drama"
-
-# these are lengthy fetches which may cause timeouts, so try to precache, Which (of course)
-# doesn't allow setting a timeout value. Blech.
-PRECACHE_URLS = ["http://www.crunchyroll.com/bleach.rss", "http://www.crunchyroll.com/naruto-shippuden.rss"]
-
-Boxee2Resolution = {'12':360, '20':480, '21':720}
-Resolution2Quality = {360:"SD", 480: "480P", 720: "720P", 1080: "1080P"}
-# NOTE: this is also in scrapper.py
-Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
-
-# these don't map too well to the Movie-style ratings, but also don't have 
-# a human-readable semantic, so:
-SAFESURF_MAP = { 
-#	0: "NR", # unused, 0 has no meaning in safe surf, so it is an error.
-	1: "G",
-	2: "Y7",
-	3: "TEEN",   # kinda like PG, but doesn't suggest parental guidance, so whatev
-	4: "TV-14",  # kids, you can get away with this one.
-	5: "MA",     # this is mature content (Adult supervision). It includes horror movies [!]
-	6: "MA",     # Adults
-	7: "R",      # Adults ONLY
-	8: "NC-17"   # Hardcore
-}
-
-ANIME_GENRE_LIST = {
-	'Action':'action',
-	'Adventure':'adventure',
-	'Comedy':'comedy',
-	'Drama':'drama',
-	'Ecchi':'ecchi',
-	'Fantasy':'fantasy',
-	'Harem':'harem',
-	'Horror':'horror',
-	'Magic':'magic',
-	'Martial Arts':'martial_arts',
-	'Mecha':'mecha',
-	'Military':'military',
-	'Parody':'parody',
-	'Psychological':'psychological',
-	'Romance':'romance',
-	'Science Fiction':'science_fiction',
-	'Shoujo':'shoujo',
-	'Slice of Life':'slice_of_life',
-	'Space':'space',
-	'Sports':'sports',
-	'Supernatural':'supernatural',
-	'Tournament':'tournament'
-}
-
-DRAMA_GENRE_LIST = {
-	'Chinese':'chinese',
-	'Japanese':'japanese',
-	'Korean':'korean',
-	'Action':'action',
-	'Comedy':'comedy',
-	'Crime':'crime',
-	'Family': 'family',
-	'Food':'food',
-	'Historical':'historical',
-	'Horror':'horror',
-	'Martial Arts': 'martial+arts',
-	'Romance':'romance',
-	'Thriller':'thriller'
-	}
-
-JUST_USE_WIDE = False
-CHECK_PLAYER = False
-SPLIT_LONG_LIST = True
-#DIRECT_GRAB = True # grab the .swf file directly (buggy, but higher res), now a pref
-
-# at the moment Boxee streams only display at 720p. SD content is upscaled, 1080p is downscaled.
-# however, this is still a higher res than you'll get with the webkit, and the stream
-# is dumb easy to write a site config for (one config for all content)
-#USE_BOXEE_STREAM = True # this is now a Pref
-
 
 HTTP.CacheTime = 3600
 HTTP.Headers["User-agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
 HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
-#HTTP.ClearCookies() #OMG this one line took hours off of my life
 
-API_URL = "://www.crunchyroll.com/ajax/"
-API_HEADERS = {
-	'User-Agent':"Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16",
-	'Host':"www.crunchyroll.com",
-	'Accept-Language':"en,en-US;q=0.9,ja;q=0.8,fr;q=0.7,de;q=0.6,es;q=0.5,it;q=0.4,pt;q=0.3,pt-PT;q=0.2,nl;q=0.1,sv;q=0.1,nb;q=0.1,da;q=0.1,fi;q=0.1,ru;q=0.1,pl;q=0.1,zh-CN;q=0.1,zh-TW;q=0.1,ko;q=0.1",
-	'Accept-Encoding':"gzip, deflate",
-	'Cookie':"",
-	'Accept':"*/*",
-	'X-Requested-With':"XMLHttpRequest",
-	'Content-Transfer-Encoding':"binary",
-	'Content-Type':"application/x-www-form-urlencoded"
-}
-
-import fanartScrapper
-import urllib2
-
-LOGIN_GRACE = 1800
-loggedInSince = 0.0
-failedLoginCount = 0
-AnimePremium = False
-DramaPremium = False
-
-def Start():
-	"""
-	Let's roll.
-	"""
-	Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
-	Plugin.AddViewGroup("List", viewMode = "List", mediaType = "Reverse Engineer the kinds of values allowed here someday")
-	MediaContainer.art = R(CRUNCHYROLL_ART)
-	MediaContainer.title1 = "CrunchyRoll"
-	MediaContainer.viewGroup = "List"
-	DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
-	
-	if Dict['Authentication'] is None:
-		resetAuthInfo()
-		
-	#LoginAtStart()
-	if 'episodes' not in Dict:
-		Dict['episodes'] = {}
-	if 'series' not in Dict:
-		Dict['series'] = {}
-	if 'fanart' not in Dict:
-		Dict['fanart'] = {}
-	if 1==0:
-		testCacheAll()
-	if False is True:
-		scrapper.cacheAllSeries()
-		listAllEpTitles()
-
-	if False: # doesn't work because cache won't accept a timeout value
-		for cacheThis in PRECACHE_URLS:
-			HTTP.PreCache(cacheThis, cacheTime=60*60*10)
-		
-
-def debugDict():
-	"""
-	Dump the global Dict{} object to the console.
-	"""
-	for key in Dict:
-		Log.Debug("####### %s" % repr(key))
-		Log.Debug(Dict[key])
+import scrapper, tvdbscrapper
 
 def getThumb(url,tvdbId=None):
 	"""
@@ -270,217 +99,187 @@ def getArt(url,tvdbId=None):
 	else:
 		return ret
 
+def makeSeriesItem(series):
+	#a = selectArt(url=series['art'],tvdbId=series['tvdbId'])
+	#Log.Debug("art url for %s: %s"%(series['title'],a))#,series['art']))
+	art = series['art']
+	if art is None: art = ""
 
-def makeAPIRequest(valuesDict,referrer=None):
-	"""
-	make a crunchyroll.com API request with the passed
-	dictionary. Optionally, specify referrer to prevent request
-	from choking.
-	"""
-	h = API_HEADERS
-	if not referrer is None:
-		h['Referrer'] = referrer
-	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
-	req = HTTP.Request("https"+API_URL,values=valuesDict,cacheTime=0,immediate=True, headers=h)
-	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
-	return response
-
-
-def makeAPIRequest2(data,referrer=None):
-	"""
-	using raw data string, make an API request. Return the result
-	"""
-	h = API_HEADERS
-	if not referrer is None:
-		h['Referrer'] = referrer
-	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
-	req = HTTP.Request("http"+API_URL,data=data,cacheTime=0,immediate=True, headers=h)
-	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
-	return response
-
-
-def LoginAtStart():
-	return Login(force=True)
-
-def LoggedIn():
-	"""
-	Immediately check if user is logged in, and change global values to reflect status. 
-	DO NOT USE THIS A LOT. It requires a web fetch.
-	"""
-	if not Dict['Authentication']:
-		resetAuthInfo()
-		
-	AnimePremium, DramaPremium = False, False
 	try:
-		req = HTTP.Request(url="https://www.crunchyroll.com/acct/?action=status", immediate=True, cacheTime=0)
-	except Exception, arg:
-		Log.Error("####Error checking status:")
-		Log.Error(repr(Exception) + " "  + repr(arg))
-		return False
-	
-	authorized = False
-	if "Profile Information" in req.content:
-		authorized = True
-	
-	authInfo = Dict['Authentication']
-	
-	if authorized:
-		if "Anime Member!" in req.content:
-			authInfo['AnimePremium'] = True
-		if "Drama Member!" in req.content: #FIXME untested!
-			authInfo['DramaPremium'] = True
+		summaryString = series['description'].encode("utf-8")
+	except AttributeError:
+		summaryString = ""
 		
-		Dict['Authentication'] = authInfo #FIXME: needed?
-		
-		Log.Debug("#####You are authorized for premium content, have a nice day.")
-		Log.Debug("#####AnimePremium member: %s" % ("yes" if authInfo['AnimePremium'] else "no"))
-		Log.Debug("#####DramaPremium member: %s" % ("yes" if authInfo['DramaPremium'] else "no"))
-		if not authInfo['AnimePremium'] and not authInfo['DramaPremium']: #WTF?
-			Log.Error("####Programmer does not know what he's doing withe Anime/Drama accounts. Apologies.")
-			Log.Debug(req.content)
-			
-	return authorized
+	seriesItem =  Function(
+		DirectoryItem(
+			SeriesMenu, 
+			title = series['title'],
+			summary=summaryString,
+			thumb=getThumbUrl(series['thumb'], tvdbId=series['tvdbId']), #Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
+			art = Function(getArt,url=art,tvdbId=series['tvdbId'])
+		), seriesId=series['seriesId'], seriesTitle=series['title'])
+	return seriesItem
 
-def resetAuthInfo():
+def makeSeasonItem(season):
 	"""
-	put a default authentication status structure into
-	the global Dict{}. Every datum is least permissions on default.
+	Create a directory item showing a particular season in a series.
+	Seasons contain episodes, so this passes responsibility on to
+	SeasonMenu() to construct that list.
 	"""
-	Dict['Authentication'] =  {'loggedInSince':0.0, 'failedLoginCount':0, 'AnimePremium': False, 'DramaPremium': False}
+	art = R(CRUNCHYROLL_ART)
+	if Dict['series'][str(season['seriesId'])]['tvdbId'] is not None:
+		artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(season['seriesId'])]['tvdbId'], season['seasonnum'])
+		Log.Debug("arturl: %s"%artUrl)
+		if artUrl is not None:
+			art = Function(getArt,url=artUrl)
+	seasonItem = Function(
 
-def Login(force=False):
+		DirectoryItem(
+			SeasonMenu,
+			season['title'],
+			summary=season['description'].encode("utf-8"),
+			#thumb=Function(getThumb,url=season['thumb']),
+			art=art
+		),
+		seriesId=season['seriesId'],
+		season=season['seasonnum']
+	)
+	return seasonItem
+
+def makeEpisodeItem(episode):
 	"""
-	Log the user in if needed. Returns False on authentication failure,
-	otherwise True. Feel free to call this anytime you think logging in
-	would be useful -- it assumes you will do so.
-
-	Guest users don't log in, therefore this will always return true for them.
-	See IsPremium() if you want to check permissions. or LoggedIn() if you 
-	want to fetch a web page NOW (use conservatively!)
+	Create a directory item that will play the video.
+	If the user is logged in and has requested to choose resolution,
+	this will lead to a popup menu. In all other cases, the user
+	need not make a choice, so go straight to the video (with a little
+	URL munging beforehand in PlayVideo())
 	"""
-	# FIXME: For this to be anything but completely unpredictable,
-	# you should pass the cookies on to safari by writing to
-	# ~/Library/Cookies/Cookies.plist and delete them from Safari
-	# when user logs out.
-	# apparently the webkit plex uses for rendering reads cookies from there (!)
-	if not Dict['Authentication'] : resetAuthInfo()
-	
-	authInfo = Dict['Authentication'] #dicts are mutable, so authInfo is a reference & will change Dict presumably
-	if Prefs['username'] and Prefs['password']:
+	giveChoice = True
+	if Prefs['quality'] != "Ask":
+		Log.Debug("Quality is not Ask")
+		giveChoice = False
+	elif not Prefs['password'] or not Prefs['username']:
+		Log.Debug("User wants to choose res, but password is missing")
+		giveChoice = False
+	elif not api.isPremium():
+		Log.Debug("User wants to choose res, but not a premium member")
+		giveChoice = False
 
-		# fifteen minutes is reasonable.
-		# this also prevents spamming server
-		if (force == False) and (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
-			return True
-
-		Log.Debug("#########Well\n forced is %s and loggedInTime is %f" % (repr(force), time.time() - authInfo['loggedInSince']) )
-		if force: 
-			HTTP.ClearCookies()
-			killSafariCookies()
-			authInfo['loggedInSince'] = 0
-			authInfo['failedLoginCount'] = 0
-			#Dict['Authentication'] = authInfo
-
-		if not force and authInfo['failedLoginCount'] > 2:
-			return False # Don't bash the server, just inform caller
-		
-		Log.Debug("#########checking log in")
-		if LoggedIn():
-			authInfo['failedLoginCount'] = 0
-			authInfo['loggedInSince'] = time.time()
-			#Dict['Authentication'] = authInfo
-			return True
-		else:
-			Log.Debug("########WEB LOGIN CHECK FAILED, MUST LOG IN AGAIN")
-
-		# if we reach here, we must manually log in.
-		if not force:
-			#save about 2 seconds
-			killSafariCookies()
-			HTTP.ClearCookies()
-		try:
-			data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-			req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
-			HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
-		except Exception, arg:
-			Log.Error("####Sorry, an error occured when logging in:")
-			Log.Error(repr(Exception) + " "  + repr(arg))
-			return False
-			
-		#check it
-		if LoggedIn():
-			authInfo['loggedInSince'] = time.time()
-			authInfo['failedLoginCount'] = 0
-			#Dict['Authentication'] = authInfo
-			transferCookiesToSafari()
-			return True
-		else:
-			Log.Error("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
-			Log.Debug("COOKIIEEEE:")
-			Log.Debug(HTTP.Headers['Cookie'])
-			Log.Debug("headers: %s" % req.headers)
-			#Log.Debug("content: %s" % req.content) # Too much info
-			authInfo['failedLoginCount'] = failedLoginCount + 1
-			authInfo['loggedInSince'] = 0
-			#Dict['Authentication'] = authInfo
-			return False
+	if giveChoice:
+		Log.Debug("###############Giving Choice to user")
 	else:
-		authInfo['failedLoginCount'] = 0
-		#Dict['Authentication'] = authInfo
+		Log.Debug("##################Not giving choice to user")
+	episodeItem = []
+	summary = makeEpisodeSummary(episode)
+	
+	# check the rating
+	if episode['rating'] and episode['rating'] > 4: # adult supervision from 5 up
+		if Prefs['hideMature'] is True:
+			episodeItem = Function(DirectoryItem(
+				AdultWarning,
+				title = episode['title'],
+				subtitle = "Season %s"%episode['season'],
+				summary = createRatingString(episode['rating']) + summary,
+				thumb = Function(getThumb,url=episode['thumb']),
+				art=Function(getArt,url=getEpisodeArt(episode))
+				),
+				rating = episode['rating']
+			)
+			return episodeItem
+			
+	if giveChoice:
+		episodeItem = Function(
+			PopupDirectoryItem(
+				PlayVideoMenu,
+				title = episode['title'],
+				subtitle = "Season %s"%episode['season'],
+				summary = createRatingString(episode['rating']) + summary,
+				thumb = Function(getThumb,url=episode['thumb']),
+				art=Function(getArt,url=getEpisodeArt(episode))
+			),
+			episode=episode
+		)
+	else:
+		episodeItem = Function(
+			WebVideoItem(PlayVideo, 
+				title = episode['title'],
+				subtitle = "Season %s"%episode['season'],
+				summary = createRatingString(episode['rating']) + summary,
+				thumb = Function(getThumb,url=episode['thumb']),
+				art=Function(getArt,url=getEpisodeArt(episode))
+			), 
+				# sadly, duration requires extra fetch, so it's not good to 
+				# do per episode
+				url=episode['link'], title=episode['title'], duration=0, summary=createRatingString(episode['rating']) + " " + summary,
+				mediaId = episode['mediaId'],
+				modifyUrl=True
+		)
+	return episodeItem
 
-		return True # empty user is not authentication failure
-
-def isPremium(epType=None):
+def createRatingString(ratingLevel, append="\n"):
 	"""
-	return True if the user is logged in and has permissions to view extended content.
-	You can pass ANIME_TYPE or DRAMA_TYPE to check specifically.
-	
-	Passing type=None will return True if the user is logged in. Any other type
-	returns false.
+	Given a safe surf rating level integer, return a human-understandable string in a form like:
+	[PG-14]. Note: THESE ARE APPROXIMATIONS. Some Tv-14 content shows up as G!
+	It also appends a linefeed if there is indeed a rating. If you need a better character to append,
+	use append=whateveryourstringis.
 	"""
-	if not Dict['Authentication']: resetAuthInfo()
-	
-	authInfo = Dict['Authentication']
-	
-	Login()
-	if (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
-		Log.Debug("#####we're in the login window")
-		if epType is None: return True
-
-		if epType == ANIME_TYPE and authInfo['AnimePremium'] is True:
-			return True
-		elif epType == DRAMA_TYPE and authInfo['DramaPremium'] is True:
-			return True
-		Log.Debug("#####BUT neither Anime nor Drama Premium is set!")
-
-		return False #FIXME actually this should be an exception
-
-	Log.Debug("####you're not in the login grace period, too bad. t = %f" % (time.time()-authInfo['loggedInSince']))
-	return False
-
-def Logout():
+	theString ="["
+	if ratingLevel and SAFESURF_MAP.has_key(ratingLevel):
+		theString = theString + SAFESURF_MAP[ratingLevel]
+		theString = theString + "]" + append
+		return theString
+	else:
+		return "[NR]" + append
+		
+def makeEpisodeSummary(episode):
 	"""
-	Immediately log the user out and clear all authentication info.
+	construct a string summarizing the episode using its metadata,
+	or just return the episode's description if needed.
 	"""
-	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
+	# using inverted pyramid strategy; more detail at bottom of description
+	summary = episode['description'] + "\n\n"
+	if episode['publisher'] != '':
+		summary = "%sPublisher: %s\n" % (summary, episode['publisher'])
+	if episode['season'] != '':
+		summary = "%sSeason: %s\n" % (summary, episode['season'])
+	if episode['keywords'] != '':
+		summary = "%sKeywords: %s\n" % (summary, episode['keywords'])
+	if summary != '':
+		summary = "%s\n%s" % (summary, episode['description'])
+
+	#Log.Debug(summary)
+	return summary
 	
-	# tell plex who's boss
-	HTTP.ClearCookies()
-	killSafariCookies()
+def Start():
+	"""
+	Let's roll.
+	"""
+	Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
+	Plugin.AddViewGroup("List", viewMode = "List", mediaType = "Reverse Engineer the kinds of values allowed here someday")
+	MediaContainer.art = R(CRUNCHYROLL_ART)
+	MediaContainer.title1 = "CrunchyRoll"
+	MediaContainer.viewGroup = "List"
+	DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
 	
-	#this turns every permission off:
-	resetAuthInfo()
+	if Dict['Authentication'] is None:
+		api.resetAuthInfo()
+		
+	#loginAtStart()
+	if 'episodes' not in Dict:
+		Dict['episodes'] = {}
+	if 'series' not in Dict:
+		Dict['series'] = {}
+	if 'fanart' not in Dict:
+		Dict['fanart'] = {}
+	if 1==0:
+		testCacheAll()
+	if False is True:
+		scrapper.cacheAllSeries()
+		listAllEpTitles()
 
-
-
-def LoginNotBlank():
-	if Prefs['username'] and Prefs['password']: return True
-	return False
-
-import scrapper, tvdbscrapper
-
-
-
+	if False: # doesn't work because cache won't accept a timeout value
+		for cacheThis in PRECACHE_URLS:
+			HTTP.PreCache(cacheThis, cacheTime=60*60*10)
 
 def CreatePrefs():
 	Prefs.Add(id='loginemail', type='text', default="", label='Login Email')
@@ -498,7 +297,7 @@ def ValidatePrefs():
 	p = Prefs['password']
 	h = Prefs['quality']
 	if u and p:
-		loginSuccess = Login(force = True)
+		loginSuccess = login(force = True)
 		if not loginSuccess:
 			mc = MessageContainer("Login Failure",
 				"Failed to login, check your username and password, and that you've read your confirmation email."
@@ -518,7 +317,7 @@ def ValidatePrefs():
 	else:
 		# no username or password
 		try:
-			Logout()
+			api.logout()
 		except: pass
 		
 		if Prefs['quality'] != "SD" and Prefs['quality'] != "Highest Available":
@@ -529,69 +328,15 @@ def ValidatePrefs():
 				)
 		return mc
 
-
-
-def testCacheAll():
-	if 1==1:
-		Data.SaveObject("episodes", Dict['episodes'])
-		Data.SaveObject("series", Dict['series'])
-		Data.SaveObject("fanart", Dict['fanart'])
-	#Dict.Reset()
-	#Dict['episodes'] = {}
-	#Dict['series'] = {}
-	#Dict['fanart'] = {}
-	#HTTP.ClearCache()
-	#scrapper.CacheAll()
-	#Log.Debug("num of eps: %s"%(len(Dict['episodes'])))
-	#Log.Debug("num of shows: %s"%(len(Dict['series'])))
-	
-	if 1==0:
-		Dict['episodes'] = Data.LoadObject("episodes")
-		Dict['series'] = Data.LoadObject("series")
-		Dict['fanart'] = Data.LoadObject("fanart")
-
-def listThumbs():
-	Log.Debug("list thumbs")
-	withs = []
-	withouts = []
-	for sk in Dict['series'].keys():
-		s = Dict['series'][str(sk)]
-		if s['tvdbId'] is not None:
-			if " " in s['thumb']:
-				withs.append('"%s": "%s"'%(s['title'], s['thumb']))
-			else:
-				withouts.append('"%s": "%s"'%(s['title'], s['thumb']))
-	s = "with"
-	for l in withs:
-		s = '%s\n%s'%(s,l)
-	s = '%s\nwithout'%s
-	for l in withouts:
-		s = '%s\n%s'%(s,l)
-	Log.Debug(s)
-
-def listThumbs2():
-	Log.Debug("list thumbs")
-	withs = []
-	for sk in Dict['series'].keys():
-		s = Dict['series'][str(sk)]
-		if s['tvdbId'] is not None:
-			if "%20" in s['thumb'] or " " in s['thumb']:
-				withs.append('"%s": "%s"'%(s['title'], s['thumb']))
-	s = "with"
-	for l in withs:
-		s = '%s\n%s'%(s,l)
-	Log.Debug(s)
-
-
 def TopMenu():
-	Login()
+	api.login()
 
 	if CHECK_PLAYER is True:
 		scrapper.returnPlayer()
 	Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
 
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
-	if isPremium():
+	if api.isPremium():
 		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
@@ -606,6 +351,278 @@ def TopMenu():
 	
 	return dir
 
+def QueueMenu(sender):
+	"""
+	Show series titles that the user has in her queue
+	"""
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
+	queueList = scrapper.getQueueList()
+	for queue in queueList:
+		dir.Append(makeQueueItem(queue))
+	dir.noCache = 1
+	return dir
+
+
+def makeQueueItem(queueInfo):
+	"""
+	construct a directory item for a series existing in user's queue.
+	Selecting this item leads to more details about the series, and the ability
+	to remove it from the queue.
+	"""
+	Log.Debug("queueinfo: %s" % queueInfo)
+	s = Dict['series']
+	sId = str(queueInfo['seriesId'])
+	thumb = (s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
+	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
+	queueItem = Function(DirectoryItem(
+		QueueItemMenu,
+		title=queueInfo['title'],
+		summary=s[sId]['description'],
+		thumb=Function(getThumb,url=thumb),
+		art=Function(getArt,url=art)
+		), queueInfo=queueInfo)
+	return queueItem
+
+
+def QueuePopupMenu(sender, queueInfo):
+	#FIXME this is skipped for now, we go straight into QueueItemMenu
+	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])#, noCache=True)
+	ViewQueueItem = Function(DirectoryItem(QueueItemMenu, "View"), queueInfo=queueInfo)
+	RemoveSeries = Function(DirectoryItem(RemoveFromQueue, title="Remove from queue"), seriesId=queueInfo['seriesId'])
+	dir.Append(ViewQueueItem)
+	dir.Append(RemoveSeries)
+	dir.noCache=1
+	return dir
+
+
+def QueueItemMenu(sender,queueInfo):
+	"""
+	show episodes in a queued series that are ready to watch. Also,
+	allow user to remove the series from queue or view the
+	entire series if she wishes.
+	"""
+	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True)
+	seriesurl = scrapper.seriesTitleToUrl(queueInfo['title'])
+	s = Dict['series']
+	sId = str(queueInfo['seriesId'])
+	thumb = (s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
+	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
+	if queueInfo['epToPlay'] is not None:
+		nextEp = scrapper.getEpInfoFromLink(queueInfo['epToPlay'])
+		PlayNext = makeEpisodeItem(nextEp)
+		dir.Append(PlayNext)
+	RemoveSeries = Function(DirectoryItem(RemoveFromQueue, title="Remove series from queue"), seriesId=sId)
+	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueInfo['seriesId'])
+	dir.Append(RemoveSeries)
+	dir.Append(ViewSeries)
+	dir.noCache = 1
+	return dir
+	
+
+def SearchMenu(sender, query=""):
+	"""
+	search boxee_feeds and return results in a media container
+	"""
+	episodeList = scrapper.getEpisodeListFromQuery(query)
+	if episodeList:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
+		for episode in episodeList:
+			#Log.Debug("#################################\n")
+			#Log.Debug(episode)
+			if episode.has_key('seriesTitle') and episode['seriesTitle'].lower() not in episode['title'].lower():
+				episode['title'] = episode['seriesTitle'] + ": " + episode['title']
+			dir.Append(makeEpisodeItem(episode))
+	else:
+		dir = MessageContainer("Nothing Found", "Could not find what you were looking for. Apologies.")
+	
+	return dir	
+	
+def BrowseMenu(sender,type=None):
+	"""
+	Show menu for browsing content of type=ANIME_TYPE or DRAMA_TYPE
+	"""
+	if type==ANIME_TYPE:
+		all_icon = ANIME_ICON
+	elif type==DRAMA_TYPE:
+		all_icon = DRAMA_ICON
+		
+	dir = MediaContainer(disabledViewModes=["coverflow"], title1="Browse %s" % type)
+	
+	if type== ANIME_TYPE:
+		dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
+
+	else:
+		dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
+
+	dir.Append(Function(DirectoryItem(RecentListMenu,"Recent", title1="Recent", thumb=R(all_icon)), type=type))
+	
+	if type == ANIME_TYPE:
+		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular" , title1="Popular", thumb=R(all_icon)), type=type))
+
+	dir.Append(Function(DirectoryItem(GenreListMenu,"by Genre", title1="by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
+	#dir.noCache = 1
+	return dir
+
+
+def AlphaListMenu(sender,type=None,query=None):
+	"""
+	Browse using the alphabet.
+	"""
+	if query is not None:
+		startTime = Datetime.Now()
+		if query=="#":
+			queryCharacters = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
+		elif query=="All":
+			queryCharacters = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
+		else:
+			queryCharacters = (query.lower(), query.upper())
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
+		if type==ANIME_TYPE:
+			seriesList = scrapper.getAnimeSeriesList()
+		else:
+			seriesList = scrapper.getDramaSeriesList()
+			
+		for series in seriesList:
+			if series['title'].startswith(queryCharacters):
+				dir.Append(makeSeriesItem(series))
+		dtime = Datetime.Now()-startTime
+		Log.Debug("AlphaListMenu %s (%s) execution time: %s"%(type, query, dtime))
+		#listThumbs2()	
+	else:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=sender.itemTitle)
+		characters = ['All', '#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
+		for character in characters:
+			dir.Append(Function(DirectoryItem(AlphaListMenu,"%s" % character, thumb=R(CRUNCHYROLL_ICON)), type=type, query=character))
+	return dir
+
+def RecentListMenu(sender, type=None):
+	startTime = Datetime.Now()
+	listRoot = BASE_URL + "/" + type.lower()
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Recent")
+	episodeList = []
+	if type==ANIME_TYPE:
+		episodeList = scrapper.getRecentAnimeEpisodes()
+	elif type==DRAMA_TYPE:
+		episodeList = scrapper.getRecentDramaEpisodes()
+	else:
+		episodeList = []
+		
+	for episode in episodeList:
+		dir.Append(makeEpisodeItem(episode))
+
+	dtime = Datetime.Now()-startTime
+	Log.Debug("RecentListMenu %s execution time: %s"%(type, dtime))
+	return dir
+
+
+def PopularListMenu(sender,type=None):
+	#FIXME: support drama popular, too?
+	startTime = Datetime.Now()
+	listRoot = BASE_URL + "/" + type.lower()
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
+	seriesList = []
+	if type==ANIME_TYPE:
+		seriesList = scrapper.getPopularAnimeSeries()
+	elif type==DRAMA_TYPE:
+		#FIXME: this returns an empty list.
+		seriesList = scrapper.getPopularDramaSeries()
+	else:
+		seriesList = []
+		
+	for series in seriesList:
+		dir.Append(makeSeriesItem(series))
+	dtime = Datetime.Now()-startTime
+	Log.Debug("PopularListMenu %s execution time: %s"%(type, dtime))
+	return dir
+
+
+def GenreListMenu(sender,type=None,genre=None):
+	"""
+	Browse type of series (ANIME_TYPE or DRAMA_TYPE) by a genre key that
+	exists in DRAMA_GENRE_LIST or ANIME_GENRE_LIST
+	"""
+	#example: http://www.crunchyroll.com/boxee_feeds/genre_drama_romance
+	startTime = Datetime.Now()
+	genreList = ANIME_GENRE_LIST if type==ANIME_TYPE else DRAMA_GENRE_LIST
+	if genre is not None:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=genre)
+			
+		if type == ANIME_TYPE:
+			seriesList = scrapper.getAnimeSeriesByGenre(genre)
+		elif type == DRAMA_TYPE:
+			seriesList = scrapper.getDramaSeriesByGenre(genre)
+		else:
+			seriesList = scrapper.getSeriesByGenre(genre)
+			
+		for series in seriesList:
+			dir.Append(makeSeriesItem(series))
+		dtime = Datetime.Now()-startTime
+		Log.Debug("GenreListMenu %s (%s) execution time: %s"%(type, genre, dtime))
+	else:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=sender.itemTitle)
+		keyList = genreList.keys()
+		keyList.sort()
+		for genre in keyList:
+			Log.Debug("genre: %s" % genre)
+			dir.Append(Function(DirectoryItem(GenreListMenu,"%s" % genre, thumb=R(CRUNCHYROLL_ICON)), type=type, genre=genre))
+	return dir
+	
+def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
+	"""
+	show the episodes available for seriesId. Use seriesTitle for
+	the breadcrumb display.
+	"""
+	startTime = Datetime.Now()
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=seriesTitle)
+	
+	if api.login() and api.isPremium():
+		dir.Append(
+			Function(PopupDirectoryItem(
+					QueueChangePopupMenu, 
+					title="Queue...", 
+					summary="Add or remove this series from your queue."
+				), 
+				seriesId=seriesId )
+			)
+
+	episodes = scrapper.getEpisodeListForSeries(seriesId)
+	if episodes['useSeasons'] is True:
+		seasonNums = episodes['seasons'].keys()
+		Log.Debug("season nums: %s" % seasonNums)
+		season = {}
+		season['url'] = scrapper.seriesTitleToUrl(Dict['series'][str(seriesId)]['title'])
+		season['description'] = ""
+		season['seriesId'] = seriesId
+		#season['episodes'] = episodes['seasons'][seasonNum]
+		season['title'] = "All Seasons"
+		season['seasonnum'] = "all"
+		#season['thumb'] = 
+		dir.Append(makeSeasonItem(season))
+		for seasonNum in seasonNums:
+			seasonName = "Season %s" % seasonNum
+			#season['episodes'] = episodes['seasons'][seasonNum]
+			season['title'] = seasonName
+			season['seasonnum'] = seasonNum
+			#season['thumb'] = 
+			dir.Append(makeSeasonItem(season))
+	else:
+		for episode in episodes['episodeList']:
+			dir.Append(makeEpisodeItem(episode))
+	dtime = Datetime.Now()-startTime
+	Log.Debug("SeriesMenu (%s) execution time: %s"%(seriesId, dtime))
+	return dir
+
+def SeasonMenu(sender,seriesId=None,season=None):
+	"""
+	Display a menu showing episodes available in a particular season.
+	"""
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
+	epList = scrapper.getSeasonEpisodeListFromFeed(seriesId, season)
+	for episode in epList:
+		dir.Append(makeEpisodeItem(episode))
+	return dir
+
+	
 def DebugMenu(sender):
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	dir.Append(Function(DirectoryItem(DumpInfo, "Dump info to console")) )
@@ -636,12 +653,25 @@ def ClearAllData(sender):
 #	CreatePrefs()
 	return MessageContainer("Huzzah", "You are now sparklie clean.")
 
+def VideoTestMenu(sender, query=None):
+	if query:
+		Log.Debug("#########so, you're sending me superflous info, eh?")
+		Log.Debug(query)
+		
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll Video Tests")
+	
+	# object containers don't take WebVideoItems, so screw it
+	#dir = ObjectContainer(title1="Crunchyroll Video Tests")
+	addMediaTests(dir)
+	dir.noCache=1
+	return dir
+	
 def LogoutFromMenu(sender):
 	"""
 	logout and return a message container with the result
 	"""
-	Logout()
-	if not LoggedIn():
+	api.logout()
+	if not api.loggedIn():
 		dir = MessageContainer("Logout", "You are now logged out")
 	else:
 		dir = MessageContainer("Logout Failure", "Nice try, but logout failed.")
@@ -654,10 +684,10 @@ def LoginFromMenu(sender):
 	if not Prefs['username'] or not Prefs['password']:
 		dir = MessageContainer("Login Brain Fart", "You cannot login because your username or password are blank.")
 	else:
-		result = Login(force = True)
+		result = login(force = True)
 		if not result:
 			dir = MessageContainer("Auth failed", "Authentication failed at crunchyroll.com")
-		elif isPremium():
+		elif api.isPremium():
 			dir = MessageContainer("Login", "You are logged in, congrats.")
 		else:
 			dir = MessageContainer("Login Failure", "Sorry, bro, you didn't login!")
@@ -673,7 +703,7 @@ def KillSafariCookiesItem(sender):
 	return MessageContainer("Cookies Cleared", "All cookies from crunchyroll.com have been removed from Safari")
 
 def TransferCookiesItem(sender):
-	if transferCookiesToSafari():
+	if api.transferCookiesToSafari():
 		return MessageContainer("Cookies Transferred.", "Done.")
 	else:
 		return MessageContainer("Transfer Failed.", "Nastiness occured, check the console.")
@@ -689,11 +719,6 @@ def ConstructTestVideo(episode)	:
 		)
 	return episodeItem
 
-def VideoTestMenu(sender):
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll Video Tests")
-	addMediaTests(dir)
-	return dir
-	
 def addMediaTests(dir):
 	"""
 	add some video tests to a MediaContainer
@@ -736,7 +761,14 @@ def addMediaTests(dir):
 			'summary': "1080p direct stream. You need to log in and have your preference at CR.com set to view 1080p. No ads should show. Plex should report a resolution of 1920x1080. There MIGHT be small black bars at top and bottom due to ratio difference (but really shouldn't happen). Seek, play and pause should work.",
 			'link': "http://www.crunchyroll.com/swf/vidplayer.swf?config_url=http%3A%2F%2Fwww.crunchyroll.com%2Fxml%2F%3Freq%3DRpcApiVideoPlayer_GetStandardConfig%26media_id%3D542596%26video_format%3D0%26video_quality%3D0%26auto_play%3D1%26click_through%3D1&__qual=1080",
 			'mediaId': '542596'
+			},
+			{'title': "Puffy AmiYumi Interview",
+			'season': 'None',
+			'summary': "Freebie web content with standard URL. Currently nukes PMS alltogether with EXC_BAD_ACCESS.",
+			'link':"http://www.crunchyroll.com/puffy-amiyumi/-puffy-amiyumi-puffy-amiyumi-interview-565187?p360=1&t=0&small=0&wide=0",
+			'mediaId': '565187'
 			}
+			
 			
 			
 		]
@@ -755,299 +787,16 @@ def addMediaTests(dir):
 			summary="This is an RTMPE stream. It shouldn't play, but if it does it should show ads and fit the borders." 
 			)
 		)
-
-def SearchMenu(sender, query=""):
-	"""
-	search boxee_feeds and return results in a media container
-	"""
-	episodeList = scrapper.getEpisodeListFromQuery(query)
-	if episodeList:
-		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
-		for episode in episodeList:
-			#Log.Debug("#################################\n")
-			#Log.Debug(episode)
-			if episode.has_key('seriesTitle') and episode['seriesTitle'].lower() not in episode['title'].lower():
-				episode['title'] = episode['seriesTitle'] + ": " + episode['title']
-			dir.Append(makeEpisodeItem(episode))
-	else:
-		dir = MessageContainer("Nothing Found", "Could not find what you were looking for. Apologies.")
-	
-	return dir	
-	
-def BrowseMenu(sender,type=None):
-	"""
-	Show menu for browsing content of type=ANIME_TYPE or DRAMA_TYPE
-	"""
-	if type==ANIME_TYPE:
-		all_icon = ANIME_ICON
-	elif type==DRAMA_TYPE:
-		all_icon = DRAMA_ICON
 		
-	dir = MediaContainer(disabledViewModes=["coverflow"], title1="Browse %s" % type)
-	
-	if type== ANIME_TYPE:
-		dir.Append(Function(DirectoryItem(AlphaListMenu,"All (not working, sry)", title1="All", thumb=R(all_icon)), type=type))
-	else:
-		dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
-	
-	if type == ANIME_TYPE:
-		dir.Append(Function(DirectoryItem(PopularListMenu,"Popular" , title1="Popular", thumb=R(all_icon)), type=type))
-
-	#dir.Append(Function(DirectoryItem(RecentListMenu,"Recent Anime", thumb=R(all_icon)), type=type))
-	dir.Append(Function(DirectoryItem(GenreListMenu,"by Genre", title1="by Genre", thumb=R(CRUNCHYROLL_ICON)), type=type))
-	#dir.noCache = 1
-	return dir
-
-
-def AlphaListMenu(sender,type=None,query=None):
-	"""
-	Browse using the alphabet.
-	"""
-	if query is not None:
-		startTime = Datetime.Now()
-		if query=="#":
-			queryCharacters = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
-		elif query=="All":
-			queryCharacters = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z')
-		else:
-			queryCharacters = (query.lower(), query.upper())
-		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
-		seriesList = scrapper.getSeriesListFromFeed("genre_anime_all" if ANIME_TYPE==type else "drama")
-		for series in seriesList:
-			if series['title'].startswith(queryCharacters):
-				dir.Append(makeSeriesItem(series))
-		dtime = Datetime.Now()-startTime
-		Log.Debug("AlphaListMenu %s (%s) execution time: %s"%(type, query, dtime))
-		#listThumbs2()	
-	else:
-		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=sender.itemTitle)
-		characters = ['All', '#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
-		for character in characters:
-			dir.Append(Function(DirectoryItem(AlphaListMenu,"%s" % character, thumb=R(CRUNCHYROLL_ICON)), type=type, query=character))
-	return dir
-
-
-def PopularListMenu(sender,type=None):
-	#FIXME: support drama popular, too?
-	startTime = Datetime.Now()
-	listRoot = BASE_URL + "/" + type.lower()
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
-	seriesList = []
-	if type==ANIME_TYPE:
-		seriesList = scrapper.getSeriesListFromFeed("anime_popular", sort=False) # list is by popularity
-	elif type==DRAMA_TYPE:
-		#FIXME: this returns an empty list.
-		seriesList = scrapper.getSeriesListFromFeed("drama_popular", sort=False)
-	else:
-		seriesList = []
-		
-	for series in seriesList:
-		dir.Append(makeSeriesItem(series))
-	dtime = Datetime.Now()-startTime
-	Log.Debug("PopularListMenu %s execution time: %s"%(type, dtime))
-	return dir
-
-
-def GenreListMenu(sender,type=None,genre=None):
-	"""
-	Browse type of series (ANIME_TYPE or DRAMA_TYPE) by a genre key that
-	exists in DRAMA_GENRE_LIST or ANIME_GENRE_LIST
-	"""
-	#example: http://www.crunchyroll.com/boxee_feeds/genre_drama_romance
-	startTime = Datetime.Now()
-	genreList = ANIME_GENRE_LIST if type==ANIME_TYPE else DRAMA_GENRE_LIST
-	if genre is not None:
-		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=genre)
-		if type == ANIME_TYPE:
-			queryStr = genreList[genre].replace('_', '%20')
-			feed = "anime_withtag/" + queryStr
-		else:
-			queryStr = genreList[genre]
-			feed = "genre_drama_" + queryStr
-			
-		seriesList = scrapper.getSeriesListFromFeed(feed)
-		for series in seriesList:
-			dir.Append(makeSeriesItem(series))
-		dtime = Datetime.Now()-startTime
-		Log.Debug("GenreListMenu %s (%s) execution time: %s"%(type, genre, dtime))
-	else:
-		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=sender.itemTitle)
-		keyList = genreList.keys()
-		keyList.sort()
-		for genre in keyList:
-			Log.Debug("genre: %s" % genre)
-			dir.Append(Function(DirectoryItem(GenreListMenu,"%s" % genre, thumb=R(CRUNCHYROLL_ICON)), type=type, genre=genre))
-	return dir
-
-
-def makeSeriesItem(series):
-	#a = selectArt(url=series['art'],tvdbId=series['tvdbId'])
-	#Log.Debug("art url for %s: %s"%(series['title'],a))#,series['art']))
-	art = series['art']
-	if art is None: art = ""
-
-	seriesItem =  Function(
-		DirectoryItem(
-			SeriesMenu, 
-			title = series['title'],
-			summary=series['description'].encode("utf-8"),
-			thumb=getThumbUrl(series['thumb'], tvdbId=series['tvdbId']), #Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
-			art = Function(getArt,url=art,tvdbId=series['tvdbId'])
-		), seriesId=series['seriesId'], seriesTitle=series['title'])
-	return seriesItem
-		
-def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
-	"""
-	show the episodes available for seriesId. Use seriesTitle for
-	the breadcrumb display.
-	"""
-	startTime = Datetime.Now()
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=seriesTitle)
-	
-	if Login() and isPremium():
-		dir.Append(
-			Function(PopupDirectoryItem(
-					QueueChangePopupMenu, 
-					title="Queue...", 
-					summary="Add or remove this series from your queue."
-				), 
-				seriesId=seriesId )
-			)
-
-	episodes = scrapper.getEpisodeListForSeries(seriesId)
-	if episodes['useSeasons'] is True:
-		seasonNums = episodes['seasons'].keys()
-		Log.Debug("season nums: %s" % seasonNums)
-		season = {}
-		season['url'] = scrapper.seriesTitleToUrl(Dict['series'][str(seriesId)]['title'])
-		season['description'] = ""
-		season['seriesId'] = seriesId
-		#season['episodes'] = episodes['seasons'][seasonNum]
-		season['title'] = "All Seasons"
-		season['seasonnum'] = "all"
-		#season['thumb'] = 
-		dir.Append(makeSeasonItem(season))
-		for seasonNum in seasonNums:
-			seasonName = "Season %s" % seasonNum
-			#season['episodes'] = episodes['seasons'][seasonNum]
-			season['title'] = seasonName
-			season['seasonnum'] = seasonNum
-			#season['thumb'] = 
-			dir.Append(makeSeasonItem(season))
-	else:
-		for episode in episodes['episodeList']:
-			dir.Append(makeEpisodeItem(episode))
-	dtime = Datetime.Now()-startTime
-	Log.Debug("SeriesMenu (%s) execution time: %s"%(seriesId, dtime))
-	return dir
+		vid = VideoClipObject(
+						url="http://www.crunchyroll.com/another/episode-1-rough-sketch-589572",
+						title="Another episode 1, services",
+						summary = "This video will be fetched through services. It may just bug out. Who knows."
+					)
+		# this actually borks consistently. I actually don't understand the point of VideoClipObject.
+		#dir.Append(VideoItem("http://www.crunchyroll.com/another/episode-1-rough-sketch-589572", title="Test services", summary="This is a test of url services. It should play."))
 
 import fanartScrapper
-
-def makeSeasonItem(season):
-	"""
-	Create a directory item showing a particular season in a series.
-	Seasons contain episodes, so this passes responsibility on to
-	SeasonMenu() to construct that list.
-	"""
-	art = R(CRUNCHYROLL_ART)
-	if Dict['series'][str(season['seriesId'])]['tvdbId'] is not None:
-		artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(season['seriesId'])]['tvdbId'], season['seasonnum'])
-		Log.Debug("arturl: %s"%artUrl)
-		if artUrl is not None:
-			art = Function(getArt,url=artUrl)
-	seasonItem = Function(
-
-		DirectoryItem(
-			SeasonMenu,
-			season['title'],
-			summary=season['description'].encode("utf-8"),
-			#thumb=Function(getThumb,url=season['thumb']),
-			art=art
-		),
-		seriesId=season['seriesId'],
-		season=season['seasonnum']
-	)
-	return seasonItem
-
-
-def SeasonMenu(sender,seriesId=None,season=None):
-	"""
-	Display a menu showing episodes available in a particular season.
-	"""
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series")
-	epList = scrapper.getSeasonEpisodeListFromFeed(seriesId, season)
-	for episode in epList:
-		dir.Append(makeEpisodeItem(episode))
-	return dir
-
-
-def QueueMenu(sender):
-	"""
-	Show series titles that the user has in her queue
-	"""
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
-	queueList = scrapper.getQueueList()
-	for queue in queueList:
-		dir.Append(makeQueueItem(queue))
-	dir.noCache = 1
-	return dir
-
-
-def makeQueueItem(queueInfo):
-	"""
-	construct a directory item for a series existing in user's queue.
-	Selecting this item leads to more details about the series, and the ability
-	to remove it from the queue.
-	"""
-	Log.Debug("queueinfo: %s" % queueInfo)
-	s = Dict['series']
-	sId = str(queueInfo['seriesId'])
-	thumb = (s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
-	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
-	queueItem = Function(DirectoryItem(
-		QueueItemMenu,
-		title=queueInfo['title'],
-		summary=s[sId]['description'],
-		thumb=Function(getThumb,url=thumb),
-		art=Function(getArt,url=art)
-		), queueInfo=queueInfo)
-	return queueItem
-
-
-def QueuePopupMenu(sender, queueInfo):
-	#FIXME this is skipped for now, we go straight into QueueItemMenu
-	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])#, noCache=True)
-	ViewQueueItem = Function(DirectoryItem(QueueItemMenu, "View"), queueInfo=queueInfo)
-	RemoveSeries = Function(DirectoryItem(removeFromQueue, title="Remove from queue"), seriesId=queueInfo['seriesId'])
-	dir.Append(ViewQueueItem)
-	dir.Append(RemoveSeries)
-	dir.noCache=1
-	return dir
-
-
-def QueueItemMenu(sender,queueInfo):
-	"""
-	show episodes in a queued series that are ready to watch. Also,
-	allow user to remove the series from queue or view the
-	entire series if she wishes.
-	"""
-	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True)
-	seriesurl = scrapper.seriesTitleToUrl(queueInfo['title'])
-	s = Dict['series']
-	sId = str(queueInfo['seriesId'])
-	thumb = (s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
-	art = (s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
-	if queueInfo['epToPlay'] is not None:
-		nextEp = scrapper.getEpInfoFromLink(queueInfo['epToPlay'])
-		PlayNext = makeEpisodeItem(nextEp)
-		dir.Append(PlayNext)
-	RemoveSeries = Function(DirectoryItem(removeFromQueue, title="Remove series from queue"), seriesId=sId)
-	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueInfo['seriesId'])
-	dir.Append(RemoveSeries)
-	dir.Append(ViewSeries)
-	dir.noCache = 1
-	return dir
-
 
 def getEpisodeArt(episode):
 	"""
@@ -1073,148 +822,47 @@ def getEpisodeArt(episode):
 	Log.Debug("artUrl: %s"%artUrl)
 	return artUrl
 
-def createRatingString(ratingLevel, append="\n"):
-	"""
-	Given a safe surf rating level integer, return a human-understandable string in a form like:
-	[PG-14]. Note: THESE ARE APPROXIMATIONS. Some Tv-14 content shows up as G!
-	It also appends a linefeed if there is indeed a rating. If you need a better character to append,
-	use append=whateveryourstringis.
-	"""
-	theString ="["
-	if ratingLevel and SAFESURF_MAP.has_key(ratingLevel):
-		theString = theString + SAFESURF_MAP[ratingLevel]
-		theString = theString + "]" + append
-		return theString
-	else:
-		return "[NR]" + append
-
-def makeEpisodeItem(episode):
-	"""
-	Create a directory item that will play the video.
-	If the user is logged in and has requested to choose resolution,
-	this will lead to a popup menu. In all other cases, the user
-	need not make a choice, so go straight to the video (with a little
-	URL munging beforehand in PlayVideo())
-	"""
-	giveChoice = True
-	if Prefs['quality'] != "Ask":
-		Log.Debug("Quality is not Ask")
-		giveChoice = False
-	elif not Prefs['password'] or not Prefs['username']:
-		Log.Debug("User wants to choose res, but password is missing")
-		giveChoice = False
-	elif not isPremium():
-		Log.Debug("User wants to choose res, but not a premium member")
-		giveChoice = False
-
-	if giveChoice:
-		Log.Debug("###############Giving Choice to user")
-	else:
-		Log.Debug("##################Not giving choice to user")
-	episodeItem = []
-	summary = makeEpisodeSummary(episode)
-	
-	# check the rating
-	if episode['rating'] and episode['rating'] > 4: # adult supervision from 5 up
-		if Prefs['hideMature'] is True:
-			episodeItem = Function(DirectoryItem(
-				adultWarning,
-				title = episode['title'],
-				subtitle = "Season %s"%episode['season'],
-				summary = createRatingString(episode['rating']) + summary,
-				thumb = Function(getThumb,url=episode['thumb']),
-				art=Function(getArt,url=getEpisodeArt(episode))
-				),
-				rating = episode['rating']
-			)
-			return episodeItem
-			
-	if giveChoice:
-		episodeItem = Function(
-			PopupDirectoryItem(
-				playVideoMenu,
-				title = episode['title'],
-				subtitle = "Season %s"%episode['season'],
-				summary = createRatingString(episode['rating']) + summary,
-				thumb = Function(getThumb,url=episode['thumb']),
-				art=Function(getArt,url=getEpisodeArt(episode))
-			),
-			episode=episode
-		)
-	else:
-		episodeItem = Function(
-			WebVideoItem(PlayVideo, 
-				title = episode['title'],
-				subtitle = "Season %s"%episode['season'],
-				summary = createRatingString(episode['rating']) + summary,
-				thumb = Function(getThumb,url=episode['thumb']),
-				art=Function(getArt,url=getEpisodeArt(episode))
-			), 
-				# sadly, duration requires extra fetch, so it's not good to 
-				# do per episode
-				url=episode['link'], title=episode['title'], duration=0, summary=createRatingString(episode['rating']) + " " + summary,
-				mediaId = episode['mediaId'],
-				modifyUrl=True
-		)
-	return episodeItem
-
-def adultWarning(sender, rating=5):
+def AdultWarning(sender, rating=5):
 	"""
 	return a message container warning the user that she's about to 
 	try something naughty, and if she wants to do this naughty thing,
 	she must give herself permission to do it.
 	"""
 	return MessageContainer("Adult Content", "Cannot play mature content unless you change your preferences.")
-	
-def makeEpisodeSummary(episode):
-	"""
-	construct a string summarizing the episode using its metadata,
-	or just return the episode's description if needed.
-	"""
-	# using inverted pyramid strategy; more detail at bottom of description
-	summary = episode['description'] + "\n\n"
-	if episode['publisher'] != '':
-		summary = "%sPublisher: %s\n" % (summary, episode['publisher'])
-	if episode['season'] != '':
-		summary = "%sSeason: %s\n" % (summary, episode['season'])
-	if episode['keywords'] != '':
-		summary = "%sKeywords: %s\n" % (summary, episode['keywords'])
-	if summary != '':
-		summary = "%s\n%s" % (summary, episode['description'])
-
-	#Log.Debug(summary)
-	return summary
 
 
-def removeFromQueue(sender,seriesId):
+def RemoveFromQueue(sender,seriesId):
 	"""
 	remove seriesID from queue
 	"""
-	Login()
-	response = makeAPIRequest2("req=RpcApiUserQueue_Delete&group_id=%s"%seriesId)
-	#FIXME response should have meaning; do something here?
-	Log.Debug("remove response: %s"%response)
-	return MessageContainer("Success",'Removed from Queue')
+	api.login()
+	result = api.removeFromQueue(seriesId)
+	if result:
+		return MessageContainer("Success",'Removed from Queue')
+	else:
+		return MessageContainer("Failure", 'Could not remove from Queue.')
+	
 
-def addToQueue(sender,seriesId,url=None):
+def AddToQueue(sender,seriesId,url=None):
 	"""
 	Add seriesId to the queue.
 	"""
-	Login()
-	#FIXME url not needed?
-	Log.Debug("add mediaid: %s"%seriesId)
-	response = makeAPIRequest2("req=RpcApiUserQueue_Add&group_id=%s"%seriesId)
-	Log.Debug("add response: %s"%response)
-	return MessageContainer("Success",'Added to Queue')
+	api.login()
+	result = api.addToQueue(seriesId)
+	
+	if result:
+		return MessageContainer("Success",'Added to Queue')
+	else:
+		return MessageContainer("Failure", 'Could not add to Queue.')
 
 def QueueChangePopupMenu(sender, seriesId):
 	"""
 	Popup a Menu asking user if she wants to
 	add or remove this series from her queue
 	"""
-	Login()
+	api.login()
 	dir = MediaContainer(title1="Queue",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
-	if isPremium():
+	if api.isPremium():
 		queueList = scrapper.getQueueList()
 		inQ = False
 		for item in queueList:
@@ -1224,11 +872,11 @@ def QueueChangePopupMenu(sender, seriesId):
 		
 		if inQ:
 			dir.Append(
-				Function(DirectoryItem(removeFromQueue, title="Remove From Queue", summary="Remove this series from your queue"), seriesId=seriesId)
+				Function(DirectoryItem(RemoveFromQueue, title="Remove From Queue", summary="Remove this series from your queue"), seriesId=seriesId)
 			)
 		else:
 			dir.Append(
-				Function(DirectoryItem(addToQueue, title="Add To Queue", summary="Add this series to your queue" ), seriesId=seriesId)
+				Function(DirectoryItem(AddToQueue, title="Add To Queue", summary="Add this series to your queue" ), seriesId=seriesId)
 			)
 	return dir
 	
@@ -1237,7 +885,7 @@ def SeriesPopupMenu(sender, url, seriesId):
 	#FIXME: Now unused
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Episodes"), seriesId=seriesId)
-	AddSeries = Function(DirectoryItem(addToQueue, title="Add To queue"), seriesId=seriesId, url=url.replace(".rss",""))
+	AddSeries = Function(DirectoryItem(AddToQueue, title="Add To queue"), seriesId=seriesId, url=url.replace(".rss",""))
 	dir.Append(ViewSeries)
 	dir.Append(AddSeries)
 	#dir.Append(Function(DirectoryItem(DirMenu, "Save Local Link"), folderPath=os.path.join(os.path.expanduser("~"),"TV"), seriesId=seriesId, replace=False))
@@ -1276,7 +924,7 @@ def constructMediaObject(episode):
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
-	videoInfo['small'] = isPremium(episode['type']) is False
+	videoInfo['small'] = api.isPremium(episode['type']) is False
 	
 	epsObject = EpisodeObject(
 		url = videoInfo['baseUrl'], #dunno if this will work
@@ -1300,13 +948,13 @@ def constructMediaObject(episode):
 	dir = ObjectContainer( objects = [epsObject])
 	return dir
 
-def playVideoMenu2(sender, episode):
+def PlayVideoMenu2(sender, episode):
 	"""
 	use more code to accomplish less.
 	"""
 	return constructMediaObject(episode)
 	
-def playVideoMenu(sender, episode):
+def PlayVideoMenu(sender, episode):
 	"""
 	construct and return a MediaContainer that will ask the user
 	which resolution of video she'd like to play for episode
@@ -1323,7 +971,7 @@ def playVideoMenu(sender, episode):
 	
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
-	videoInfo['small'] = isPremium(episode['type']) is False
+	videoInfo['small'] = api.isPremium(episode['type']) is False
 
 	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
@@ -1338,11 +986,11 @@ def playVideoMenu(sender, episode):
 		episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
 		dir.Append(episodeItem)
 	dtime = Datetime.Now()-startTime
-	Log.Debug("playVideoMenu (%s) execution time: %s"%(episode['title'], dtime))
+	Log.Debug("PlayVideoMenu (%s) execution time: %s"%(episode['title'], dtime))
 	return dir
 
 def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
-	if Prefs['video_source'] == "Direct" and isPremium():
+	if Prefs['video_source'] == "Direct" and api.isPremium():
 		return PlayVideoPremium(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 	else:
 		return PlayVideoFreebie(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
@@ -1372,7 +1020,7 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 	
 	Log.Debug("Best res: " + str(bestRes))
 	
-	if isPremium(): # direct stream for premium users
+	if api.isPremium(): # direct stream for premium users
 		# FIXME: have to account for drama vs anime premium!
 		req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 		#Log.Debug("###########")
@@ -1430,7 +1078,7 @@ def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None,
 
 	
 	if Prefs['video_source'] == "Direct":
-		if isPremium(): # only premium users should grab directly
+		if api.isPremium(): # only premium users should grab directly
 			req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 			#Log.Debug("###########")
 			#Log.Debug(req.content)
@@ -1474,96 +1122,6 @@ def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None,
 	#req = HTTP.Request(theUrl, immediate=True, cacheTime=0)
 	#Log.Debug(req.content)
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
-
-def killSafariCookies():
-	"""
-	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
-	and save the result.
-	"""
-	import os.path, plistlib
-	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-	try:
-		theList = plistlib.readPlist(filename)
-	except IOError:
-		#hm, okay, whatev, no file or gimpiness, let's bail
-		return
-		
-	theSavedList = []
-	for item in theList:
-		if not "crunchyroll.com" in item['Domain']:
-			theSavedList.append(item)
-		else:
-			Log.Debug("######removing cookie:")
-			Log.Debug(item)
-		
-	plistlib.writePlist(theSavedList, filename)
-
-
-def transferCookiesToPlex():
-	"""
-	grab all crunchyroll.com cookies from Safari
-	and transfer them to Plex. You shouldn't do this
-	because Plex needs to be the master to
-	keep the cookie situation <= fubar.
-	"""
-	import os.path, plistlib
-	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-	try:
-		theList = plistlib.readPlist(filename)
-	except IOError:
-		#hm, okay, whatev, no file or gimpiness, let's bail
-		return
-		
-	cookieList = []
-	for item in theList:
-		if "crunchyroll.com" in item['Domain']:
-			cookieList.append(item)
-	
-	s = SimpleCookie()
-	for cookie in cookieList:
-		#FIXME: should I bother?
-		pass
-
-def transferCookiesToSafari():
-	"""
-	Copy all crunchyroll cookies from Plex's cookie storage
-	into Safari's Plist
-	"""
-	from Cookie import BaseCookie
-	import plistlib
-	from datetime import datetime, timedelta
-	cookieString = HTTP.GetCookiesForURL(BASE_URL)
-	if not cookieString: return True
-
-	try:
-		theCookies = BaseCookie(cookieString)
-		appendThis = []
-		tomorrow = datetime.now() + timedelta((1))
-		for k, v in theCookies.items():
-			#Plex doesn't supply these, so:
-			cookieDict = {'Domain':".crunchyroll.com", 
-				'Path':"/", 
-				'Expires': tomorrow, 
-				'Created': time.time(),
-				'Name': k,
-				'Value': v.value
-			}
-			appendThis.append(cookieDict)
-		Log.Debug("#######Transferring these cookies:")
-		Log.Debug(appendThis)
-		
-		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-		theList = plistlib.readPlist(filename)
-		theList.extend(appendThis)
-		#FIXME: This does not remove previous values!
-		# removing previous values takes time, so some cleverness might
-		# be in order
-		plistlib.writePlist(theList, filename)
-		return True
-	except Exception, arg:
-		Log.Debug("#########transferCookiesToSafari() Exception occured:")
-		Log.Debug(repr(Exception) + " " + repr(arg))
-		return False
 	
 def listElt(url):
 	page = HTML.ElementFromURL(url)
@@ -1590,7 +1148,67 @@ def debugFeedItem(item):
 					text4 = "\t\t\t%%s/%s/%s: %s\n%s" % (sub.tag, sub2.tag, sub3.tag, sub4.tag, sub4.text, list(sub4))
 					Log.Debug(text4)
 
+def listThumbs():
+	Log.Debug("list thumbs")
+	withs = []
+	withouts = []
+	for sk in Dict['series'].keys():
+		s = Dict['series'][str(sk)]
+		if s['tvdbId'] is not None:
+			if " " in s['thumb']:
+				withs.append('"%s": "%s"'%(s['title'], s['thumb']))
+			else:
+				withouts.append('"%s": "%s"'%(s['title'], s['thumb']))
+	s = "with"
+	for l in withs:
+		s = '%s\n%s'%(s,l)
+	s = '%s\nwithout'%s
+	for l in withouts:
+		s = '%s\n%s'%(s,l)
+	Log.Debug(s)
 
+def listThumbs2():
+	Log.Debug("list thumbs")
+	withs = []
+	for sk in Dict['series'].keys():
+		s = Dict['series'][str(sk)]
+		if s['tvdbId'] is not None:
+			if "%20" in s['thumb'] or " " in s['thumb']:
+				withs.append('"%s": "%s"'%(s['title'], s['thumb']))
+	s = "with"
+	for l in withs:
+		s = '%s\n%s'%(s,l)
+	Log.Debug(s)
+
+
+def debugDict():
+	"""
+	Dump the global Dict{} object to the console.
+	"""
+	for key in Dict:
+		Log.Debug("####### %s" % repr(key))
+		Log.Debug(Dict[key])
+
+def testCacheAll():
+	if 1==1:
+		Data.SaveObject("episodes", Dict['episodes'])
+		Data.SaveObject("series", Dict['series'])
+		Data.SaveObject("fanart", Dict['fanart'])
+	#Dict.Reset()
+	#Dict['episodes'] = {}
+	#Dict['series'] = {}
+	#Dict['fanart'] = {}
+	#HTTP.ClearCache()
+	#scrapper.CacheAll()
+	#Log.Debug("num of eps: %s"%(len(Dict['episodes'])))
+	#Log.Debug("num of shows: %s"%(len(Dict['series'])))
+	
+	if 1==0:
+		Dict['episodes'] = Data.LoadObject("episodes")
+		Dict['series'] = Data.LoadObject("series")
+		Dict['fanart'] = Data.LoadObject("fanart")
+
+		
 def msToRuntime(ms):
 	"""
 	convert miliseconds into a time string in the form
@@ -1608,14 +1226,14 @@ def msToRuntime(ms):
 	return "%02d:%02d:%02d" % (hr,min,sec)
 
 ########## OLD STUFF FOR REFERENCE OR REVERT ####
-def LoginAtStart_old():
+def loginAtStart_old():
 	global GlobalWasLoggedIn
 	global AnimePremium
 	global DramaPremium
 	#HTTP.ClearCookies() # FIXME put this back in after debugging
-	if LoginNotBlank():
+	if api.loginNotBlank():
 		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
-		response = makeAPIRequest(data)
+		response = api.makeAPIRequest(data)
 		Log.Debug("loginResponse:%s"%response)
 		response = JSON.ObjectFromString(response)
 		GlobalWasLoggedIn = (response.get('result_code') == 1)
@@ -1625,11 +1243,11 @@ def LoginAtStart_old():
 	return GlobalWasLoggedIn
 
 
-def LoggedIn_old():
+def loggedIn_old():
 	return GlobalWasLoggedIn
 
 
-def Login_old():
-	if LoginNotBlank():
+def login_old():
+	if api.loginNotBlank():
 		data = { "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
-		response = makeAPIRequest(data)
+		response = api.makeAPIRequest(data)

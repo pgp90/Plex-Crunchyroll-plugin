@@ -1,9 +1,14 @@
+from constants import *
 import tvdbscrapper, fanartScrapper
+import api
+
+
 
 """
-schema
+schema inside Dict{}
 	all items (even movies) can be referenced by a the series dict.
 	series are known by seriesID (a unique number), provided by crunchyroll.com
+	Dict['series'] =
 	{ seriesId: {
 		"title": title,
 		"seriesId": seriesId,
@@ -19,7 +24,8 @@ schema
 	episodesList contains playable media (it's actually a dict, but let's not get finicky).
 	episodes are known by mediaId (a unique number), provided at crunchyroll.com
 	This is an episode entry in the list:
-	'371594': {'seriesTitle': 'Egg Man', 
+	Dict['episodes'] =
+	{ '371594': {'seriesTitle': 'Egg Man', 
 		'publisher': 'T.O Entertainment', 
 		'mediaId': 371594, 
 		'description': 'few images of the movie Egg Man\r\n ', 
@@ -28,8 +34,8 @@ schema
 		'season': None, 
 		'title': 'Egg Man Trailer 1', 
 		'link': 'http://www.crunchyroll.com/egg-man/-egg-man-egg-man-trailer-1-371594'
+		}
 	}
-	
 	another episode schema [! make these consistent!]
 	episode = {
 		"title": title,
@@ -66,8 +72,87 @@ SERIES_TITLE_URL_FIX = {
 Boxee2Resolution = {'12':360, '20':480, '21':720}
 Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
 
+###########
+# these bad boys are here to keep __init__.py from manipulating rss feeds directly
+# and to keep feed handling in one place.
+###########
+def getPopularAnimeEpisodes():
+	"return a list of anime episode dicts that are currently popular"
+	return getEpisodeListFromFeed(POPULAR_ANIME_FEED, sort=False)
+
+def getPopularDramaEpisodes():
+	"return a list of drama episode dicts that are currenly popular"
+	return getEpisodeListFromFeed(POPULAR_DRAMA_FEED, sort=False)
+
+def getRecentVideos():
+	"return a list of episode dicts of recent videos of all types"
+	return getEpisodeListFromFeed(RECENT_VIDEOS_FEED, sort=False)
+
+def getRecentAnimeEpisodes():
+	"return a list of episode dicts of recently added anime episodes"
+	return getEpisodeListFromFeed(RECENT_ANIME_FEED, sort=False)
+
+def getRecentDramaEpisodes():
+	"return a list of recently added drama videos"
+	return getEpisodeListFromFeed(RECENT_DRAMA_FEED, sort=False)
+
+def getEpisodeListFromQuery(queryString):
+	"return a list of relevant episode dicts matching queryString"
+	return getEpisodeListFromFeed(SEARCH_URL+queryString.strip().replace(' ', '%20'), sort=False)
+
+# series feeds use boxee_feeds url, so the parsing is quite different
+def getAnimeSeriesList():
+	"return a list of all available series in anime"
+	return getSeriesListFromFeed(SERIES_FEED_BASE_URL + "genre_anime_all", sort=True)
+
+def getDramaSeriesList():
+	"return a list of all available series in Drama"
+	return getSeriesListFromFeed(SERIES_FEED_BASE_URL + "drama", sort=True)
+
+def getAllSeries():
+	"return a list of series dicts that represent all available series"
+	list = []
+	anime = getAnimeSeriesList()
+	drama = getDramaSeriesList()
+	# FIXME: if there's overlap, we'll have dupes...
+	list = anime + drama
+	return list
+
+def getPopularDramaSeries():
+	"return a list of series dicts of most popular drama"
+	return getSeriesListFromFeed(SERIES_FEED_BASE_URL + "drama_popular", sort=False)
+
+def getPopularAnimeSeries():
+	"return a list of series dicts of most popular anime"
+	return getSeriesListFromFeed(SERIES_FEED_BASE_URL + "anime_popular", sort=False)
+
+def getAnimeSeriesByGenre(genre):
+	queryStr = ANIME_GENRE_LIST[genre].replace(' ', '%20')
+	feed = SERIES_FEED_BASE_URL + "anime_withtag/" + queryStr
+	return getSeriesListFromFeed(feed)
+
+def getDramaSeriesByGenre(genre):
+	queryStr = DRAMA_GENRE_LIST[genre].replace(' ', '%20')
+	feed = SERIES_FEED_BASE_URL + "genre_drama_" + queryStr
+	return getSeriesListFromFeed(feed)
+
+def getSeriesByGenre(genre):
+	list = []
+	drama, anime = [],[]
+	try:
+		drama = getDramaSeriesByGenre(genre)
+	except KeyError: # may not have that genre
+		drama = []
+	try:
+		anime = getAnimeSeriesByGenre(genre)
+	except KeyError:
+		anime = []
+
+	# FIXME: if there's overlap, we'll have dupes...	
+	return anime + drama
+	
 def getQueueList():
-	Login()
+	api.login()
 	queueURL = BASE_URL+"/queue"
 	queueHtml = HTML.ElementFromURL(queueURL,cacheTime=QUEUE_LIST_CACHE_TIME)
 	queueList = []
@@ -97,7 +182,7 @@ def cacheAllSeries():
 	#startTime = Datetime.Now()
 	seriesDict = Dict['series']
 	for feed in ["genre_anime_all", "drama"]:
-		feedHtml = HTML.ElementFromURL(FEED_BASE_URL+feed,cacheTime=SERIES_FEED_CACHE_TIME)
+		feedHtml = HTML.ElementFromURL(SERIES_FEED_BASE_URL+feed,cacheTime=SERIES_FEED_CACHE_TIME)
 		items = feedHtml.xpath("//item")
 		if seriesDict is None:
 			seriesDict = {}
@@ -159,8 +244,19 @@ def cacheAllSeries():
 
 
 def getSeriesListFromFeed(feed, sort=True):
+	"""
+	given a proper feed url at http://www.crunchyroll.com/boxee_feeds/
+	(not "http://www.crunchyroll.com/rss" !),
+	construct a list of series dicts and return them.
+	
+	Also, put anything we find into the Dict{} cache.
+	"""
+	# sort=False is slightly bogus
+	# since parallel tasks might jumble the order.
+	# It's not too bad, though; popular items
+	# and more relevant searches tend to show up on top...
 	#startTime = Datetime.Now()
-	feedURL = FEED_BASE_URL+feed
+	feedURL = feed
 	feedHtml = HTML.ElementFromURL(feedURL,cacheTime=SERIES_FEED_CACHE_TIME)
 	seriesList = []
 	items = feedHtml.xpath("//item")
@@ -268,6 +364,8 @@ def getSeriesListFromFeed(feed, sort=True):
 
 
 def getEpisodeInfoFromPlayerXml(mediaId):
+	#FIXME: playerXml will change if user changes preferences at Crunchyroll.com
+	# it's delivered ad-hoc according to server-side account information 
 	try:
 		if not mediaId in Dict['playerXml']:
 			url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
@@ -371,7 +469,7 @@ def CacheAll():
 	
 
 
-def getEpisodeListFromFeed(feed):
+def getEpisodeListFromFeed(feed, sort=True):
 	try:
 		episodeList = []
 		PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
@@ -460,9 +558,11 @@ def getEpisodeListFromFeed(feed):
 					else:
 						episode = Dict['episodes'][str(mediaId)]
 					episodeList.append(episode)
-				
-		sortedEpisodeList = sorted(episodeList, key=lambda k: k['episodeNum'])
-		return sortedEpisodeList
+		if sort:
+			return sorted(episodeList, key=lambda k: k['episodeNum'])
+		else:
+			return episodeList
+
 	except Exception, arg:
 		Log.Error("#####We got ourselves a dagnabbit exception:")
 		Log.Error(repr(Exception) + repr(arg))
@@ -473,8 +573,6 @@ def getEpisodeListFromFeed(feed):
 		# instead of returning None
 		return None
 
-def getEpisodeListFromQuery(queryString):
-	return getEpisodeListFromFeed(SEARCH_URL+queryString.strip().replace(' ', '%20'))
 	
 def formateEpList(epList,hasSeasons):
 	sortedEpList = sorted(epList, key=lambda k: k['episodeNum'])
@@ -553,7 +651,7 @@ def getAvailResFromPage(url):
 	if not Prefs['username'] or not Prefs['password']:
 		return [360]
 
-	Login()
+	api.login()
 
 	availRes = [360]
 	link = url.replace(BASE_URL, "")
@@ -589,7 +687,7 @@ def getPrefRes(availRes):
 
 	if not Prefs['username'] or not Prefs['password']:
 		return 360 # that's all you get
-	Login()
+	api.login()
 	preferredRes = 360
 
 	if Prefs['quality'] == "Ask":

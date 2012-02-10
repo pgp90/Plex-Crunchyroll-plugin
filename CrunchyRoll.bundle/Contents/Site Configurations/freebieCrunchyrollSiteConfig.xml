@@ -3,7 +3,7 @@
 plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 initialState="playing" version="2.0">
 
-	<setCookie domain=".crunchyroll.com" path="/" name="temp_ad_closed" value="1" /> 
+	<setCookie domain=".crunchyroll.com" path="/" name="temp_ad_closed" value="1" />
 
 <!-- this plays all freebie content well. -->
 
@@ -28,7 +28,7 @@ plugin="http://static.lln.crunchyroll.com/flash/20111227190142.0fa282dfa08cb8510
 				<command name="pause"/>
 			</condition>
 			<action>
-				<click x="312" y="206"/>
+				<click x="21" y="-15"/>
 				<goto state="paused"/>
 			</action>
 		</event>
@@ -64,7 +64,7 @@ plugin="http://static.lln.crunchyroll.com/flash/20111227190142.0fa282dfa08cb8510
 					<command name="play"/>
 			</condition>
 			<action>
-				<click x="312" y="206"/>
+				<click x="21" y="-15"/>
 				<goto state="playing"/>
 			</action>
 		</event>

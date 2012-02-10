@@ -1,5 +1,6 @@
 <?xml version="1.0"?>
 <!-- this catches all boxee stream urls, nice as a backup plan if url is herpity derpy-->
+<!-- pausing is accomplished by clicking anywhere on the video. There is no playbar. -->
 <site site="http://.*.crunchyroll.com/boxee_showmedia/.*"
 	plugin="http://static..*.crunchyroll.com/flash/.*/.*StandardVideoPlayer.swf.*"
 	initialState="playing" version="2.0">
