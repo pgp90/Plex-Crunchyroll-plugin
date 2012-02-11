@@ -206,7 +206,7 @@ def ValidatePrefs():
 	p = Prefs['password']
 	h = Prefs['quality']
 	if u and p:
-		loginSuccess = login(force = True)
+		loginSuccess = api.login(force = True)
 		if not loginSuccess:
 			mc = MessageContainer("Login Failure",
 				"Failed to login, check your username and password, and that you've read your confirmation email."
@@ -486,7 +486,7 @@ def GenreListMenu(sender,type=None,genre=None):
 		keyList = genreList.keys()
 		keyList.sort()
 		for genre in keyList:
-			Log.Debug("genre: %s" % genre)
+			#Log.Debug("genre: %s" % genre)
 			dir.Append(Function(DirectoryItem(GenreListMenu,"%s" % genre, thumb=R(CRUNCHYROLL_ICON)), type=type, genre=genre))
 	return dir
 	
@@ -564,6 +564,9 @@ def DumpInfo(sender):
 	debugDict()
 	Log.Debug("###########CURRENT COOKIES")
 	Log.Debug(HTTP.GetCookiesForURL(BASE_URL))
+	Log.Debug("#############PREFERENCES:")
+	Log.Debug(Prefs)
+
 	return MessageContainer("Whew", "Thanks for dumping on me.")
 
 def ClearAllData(sender):
@@ -607,7 +610,7 @@ def LoginFromMenu(sender):
 	if not Prefs['username'] or not Prefs['password']:
 		dir = MessageContainer("Login Brain Fart", "You cannot login because your username or password are blank.")
 	else:
-		result = login(force = True)
+		result = api.login(force = True)
 		if not result:
 			dir = MessageContainer("Auth failed", "Authentication failed at crunchyroll.com")
 		elif api.isPremium():
@@ -934,7 +937,9 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 	
 	if api.isPremium(): # direct stream for premium users
 		# FIXME: have to account for drama vs anime premium!
-		req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
+		modUrl = getVideoUrl(vidInfo, bestRes) # get past mature wall... hacky I know
+		
+		req = HTTP.Request(modUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
 		#Log.Debug("###########")
 		#Log.Debug(req.content)
 
@@ -942,6 +947,7 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 		if not match:
 			# bad news
 			Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+			Log.Debug(req.content)
 			theUrl = theUrl
 		else:
 			theUrl = match.group(2)	+ "&__qual=" + str(bestRes)
@@ -959,16 +965,10 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 	
 def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
 	"""
-	The video has been chosen! Whew. Only thing left is to munge the URL so site configs
-	do the Right Thing, and redirect to WebVideoItem()
+	Freebie video is easy.
 	"""
-	# Current issues:
-	# Crunchyroll.com  pops up an ad on the web page and crashes PMS entirely. Welcome to the
-	# wonderful world of HTML 5 -- indestructable popups!
-	# I try to get around this by setting the cookie temp_ad_closed to 1 in site config,
-	# but I'm sure the situation will change with the wind; boxee stream is best
-	# choice ATM if crashing happens.
-	
+	#FIXME all video playing should be done by mediaId, letting scrapper
+	# deal with the details.
 	theUrl = url
 	resolutions = scrapper.getAvailResFromPage(url)
 	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
@@ -977,62 +977,9 @@ def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None,
 	
 	if modifyUrl is True:
 		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
-		bestRes = scrapper.getPrefRes(resolutions)
+		bestRes = 360 #scrapper.getPrefRes(resolutions)
 		theUrl = getVideoUrl(vidInfo, bestRes)
-
-
-	# theUrl = theUrl + "&small=1"
-
-
-	# grab the .swf file directly
-	# example element:
-	#<link rel="video_src" href="http://www.crunchyroll.com/swf/vidplayer.swf?config_url=http%3A%2F%2Fwww.crunchyroll.com%2Fxml%2F%3Freq%3DRpcApiVideoPlayer_GetStandardConfig%26media_id%3D591521%26video_format%3D0%26video_quality%3D0%26auto_play%3D1%26click_through%3D1" />
-
-	
-	if Prefs['video_source'] == "Direct":
-		if api.isPremium(): # only premium users should grab directly
-			req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
-			#Log.Debug("###########")
-			#Log.Debug(req.content)
-	
-			match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
-			if not match:
-				# bad news
-				Log.Error("###########Could not find direct swf link, trying hail mary pass...")
-				theUrl = theUrl
-			else:
-				theUrl = match.group(2)
-	elif Prefs['video_source'] == "Boxee Stream":
-		#req = HTTP.Request(theUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
-
-		# example: http://www.crunchyroll.com/angelic-layer/episode-26-454040?p480=1
-		pieces = theUrl.split('/')
-		name = pieces[3]
-		id = re.sub(r'.*-|\?.*', r'', pieces[4])
-		mediapath = pieces[4].split('?')[0]
-		
-		#http://www.crunchyroll.com/boxee_showmedia/588306&amp;bx-ourl=http://www.crunchyroll.com/naruto-shippuden/episode-246-the-orange-spark-588306
-		
-		theUrl = "http://www.crunchyroll.com/boxee_showmedia/%s&amp;bx-ourl=http://www.crunchyroll.com/%s/%s" % (id, name, mediapath)
-
-		req = HTTP.Request(theUrl, immediate=True, cacheTime=0, encoding='utf8')
-
-		#FIXME use xpath instead of re.search()
-		m = re.search(r'\'video_player\',\'([^\']+)\', *\'([^\']+)\'', req.content, re.MULTILINE) ;m
-
-		if m:
-			height = m.group(2) # only care about height
-			theUrl=theUrl + "&__qual=%s" % height # this is bogus param for site config recognition
-		else:
-			Log.Error("#####could not find user resolution settings for %s" % theUrl)
-			Log.Debug(req.content)
-			# but we go with it anyway...			
- 			
-	Log.Debug("##########final URL is '%s'" % theUrl)
-	Log.Debug("##########duration: %s" % str(duration))
-	
-	#req = HTTP.Request(theUrl, immediate=True, cacheTime=0)
-	#Log.Debug(req.content)
+	Log.Debug("####Final URL: %s" % theUrl)
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 	
 def listElt(url):

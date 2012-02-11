@@ -42,25 +42,6 @@ windowWidth="1280">
 				<goto state="playing"/>
 			</action>
 		</event>
-		<event>
-			<condition>
-				<or>
-					<color x="19" y="-15" rgb="808080"/>
-					<color x="19" y="-15" rgb="333333"/>
-				</or>
-			</condition>
-			<action>
-				<goto state="playing"/>
-			</action>
-		</event>
-		<event>
-			<condition>
-				<color x="8" y="8" rgb="555555"/>
-			</condition>
-			<action>
-				<goto state="playing" />
-			</action>
-		</event>
 	</state>
 	
 </site>
