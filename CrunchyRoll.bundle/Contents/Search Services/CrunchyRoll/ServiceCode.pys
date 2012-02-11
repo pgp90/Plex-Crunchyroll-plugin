@@ -1,6 +1,4 @@
 SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
-THUMB_QUALITY                = {"Low":"_medium","Medium":"_large","High":"_full"}
-
 
 
 def Search(query):

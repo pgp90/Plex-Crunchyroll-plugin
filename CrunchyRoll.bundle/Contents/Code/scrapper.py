@@ -494,8 +494,10 @@ def getEpisodeListFromFeed(feed, sort=True):
 						elif title.startswith("%s Season " % seriesTitle):
 							title = title.replace("%s Season " % seriesTitle, "")
 							title = title.split(" ", 1)[1].lstrip("- ")
-						link = item.xpath("./link")[0].text
+						#link = item.xpath("./link")[0].text
+						link = item.xpath("./guid")[0].text
 						description = item.xpath("./description")[0].text
+						
 						if "/><br />" in description:
 							description = description.split("/><br />")[1]
 						try:
@@ -543,7 +545,7 @@ def getEpisodeListFromFeed(feed, sort=True):
 							"title": title,
 							"link": link,
 							"mediaId": mediaId,
-							"description": description,
+							"description": stripHtml(description),
 							"seriesTitle": seriesTitle,
 							"episodeNum": episodeNum,
 							"thumb": thumb,
@@ -573,6 +575,15 @@ def getEpisodeListFromFeed(feed, sort=True):
 		# instead of returning None
 		return None
 
+def stripHtml(html):
+	"""
+	return a string stripped of html tags
+	"""
+	# kinda works
+	res = html.replace("&lt;", "<")
+	res = res.replace("&gt;", ">")
+	res = re.sub(r'<[^>]+>', '', res)
+	return res
 	
 def formateEpList(epList,hasSeasons):
 	sortedEpList = sorted(epList, key=lambda k: k['episodeNum'])

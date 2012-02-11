@@ -72,6 +72,7 @@ def selectArt(url,tvdbId=None):
 	
 
 def getArt(url,tvdbId=None):
+	import urllib2
 	ret = None
 	if (tvdbId is not None and Prefs['fanart'] is True):
 		art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
@@ -156,7 +157,7 @@ def makeEpisodeItem(episode):
 	"""
 	giveChoice = True
 	if Prefs['quality'] != "Ask":
-		Log.Debug("Quality is not Ask")
+		#Log.Debug("Quality is not Ask")
 		giveChoice = False
 	elif not Prefs['password'] or not Prefs['username']:
 		Log.Debug("User wants to choose res, but password is missing")
@@ -165,10 +166,10 @@ def makeEpisodeItem(episode):
 		Log.Debug("User wants to choose res, but not a premium member")
 		giveChoice = False
 
-	if giveChoice:
-		Log.Debug("###############Giving Choice to user")
-	else:
-		Log.Debug("##################Not giving choice to user")
+#	if giveChoice:
+#		Log.Debug("###############Giving Choice to user")
+#	else:
+#		Log.Debug("##################Not giving choice to user")
 	episodeItem = []
 	summary = makeEpisodeSummary(episode)
 	
@@ -338,6 +339,8 @@ def TopMenu():
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	if api.isPremium():
 		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
+
+	dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="RecentAdditions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))	
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
 	dir.Append(Function(InputDirectoryItem(SearchMenu, "Search...", thumb=R(SEARCH_ICON), prompt=L("Search for videos..."), ART=R(CRUNCHYROLL_ART))))
@@ -417,7 +420,21 @@ def QueueItemMenu(sender,queueInfo):
 	dir.Append(ViewSeries)
 	dir.noCache = 1
 	return dir
-	
+
+def RecentAdditionsMenu(sender):
+	"""
+	show recently added videos
+	"""
+	episodeList = scrapper.getRecentVideos()
+	if episodeList:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Recent")
+		for episode in episodeList:
+			dir.Append(makeEpisodeItem(episode))
+		dir.noCache = 1
+		return dir
+	else:
+		return MessageContainer("No recent additions", "No recent videos found.")
+
 
 def SearchMenu(sender, query=""):
 	"""
@@ -497,7 +514,6 @@ def AlphaListMenu(sender,type=None,query=None):
 
 def RecentListMenu(sender, type=None):
 	startTime = Datetime.Now()
-	listRoot = BASE_URL + "/" + type.lower()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Recent")
 	episodeList = []
 	if type==ANIME_TYPE:
@@ -518,7 +534,6 @@ def RecentListMenu(sender, type=None):
 def PopularListMenu(sender,type=None):
 	#FIXME: support drama popular, too?
 	startTime = Datetime.Now()
-	listRoot = BASE_URL + "/" + type.lower()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
 	seriesList = []
 	if type==ANIME_TYPE:
