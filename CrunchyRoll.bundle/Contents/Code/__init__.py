@@ -6,102 +6,10 @@ HTTP.CacheTime = 3600
 HTTP.Headers["User-agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
 HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
 
-import scrapper, tvdbscrapper
-
-def getThumb(url,tvdbId=None):
-	"""
-	Try to find a better thumb than the one provided via url.
-	The thumb data returned is either an URL or the image data itself.
-	"""
-	ret = None
-	if (tvdbId is not None and Prefs['fanart'] is True):
-		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
-		if thumb is None: thumb = url
-		url=thumb
+import scrapper
 	
-	if url==R(CRUNCHYROLL_ICON):
-		ret = url
-	else:
-		if url is not None:
-			try:
-				data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
-				if url.endswith(".jpg"):
-					ret = DataObject(data, 'image/jpeg')
-				elif url.endswith(".png"):
-					ret = DataObject(data, 'image/png')
-			except Exception, arg:
-				Log.Debug("#####Thumbnail couldn't be retrieved:")
-				Log.Error("#####" + repr(Exception) + repr(arg))
-				ret = None
-
-	if ret is None:
-		return R(CRUNCHYROLL_ICON)
-	else:
-		return ret
-
-def getThumbUrl(url, tvdbId=None):
-	"""
-	just get the best url instead of the image data itself.
-	this can help 'larger thumbs missing' issue
-	"""
-	if (tvdbId is not None and Prefs['fanart'] is True):
-		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
-		if thumb is not None: return thumb
-
-
-	if url==R(CRUNCHYROLL_ICON):
-		return url
-	
-	return url
-	
-def selectArt(url,tvdbId=None):
-	ret = None
-	if (tvdbId is not None and Prefs['fanart'] is True):
-		art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
-		if art is None: art = url
-		url=art
-	if url==R(CRUNCHYROLL_ART):
-		ret = url
-	else:
-		if url is not None:
-			ret = url
-		else:
-			ret = R(CRUNCHYROLL_ART)
-	#Log.Debug("art: %s"%ret)
-	return url#ret
-	
-
-def getArt(url,tvdbId=None):
-	import urllib2
-	ret = None
-	if (tvdbId is not None and Prefs['fanart'] is True):
-		art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
-		if art is None: art = url
-		url=art
-	if url==R(CRUNCHYROLL_ART) or url is None or url is "":
-		req = urllib2.Request("http://127.0.0.1:32400"+R(CRUNCHYROLL_ART))
-		ret = DataObject(urllib2.urlopen(req).read(), 'image/jpeg')
-	else:
-		try:
-			#Log.Debug("url: %s"%url)
-			data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
-			if url.endswith(".jpg"):
-				ret = DataObject(data, 'image/jpeg')
-			elif url.endswith(".png"):
-				ret = DataObject(data, 'image/png')
-		except Exception,arg: 
-			Log.Debug("####Exception when grabbing art at '%s'" % url)
-			Log.Debug(repr(Exception) + repr(arg))
-		
-
-	if ret is None:
-		req = urllib2.Request("http://127.0.0.1:32400"+R(CRUNCHYROLL_ART))
-		return DataObject(urllib2.urlopen(req).read(), 'image/jpeg')
-	else:
-		return ret
-
 def makeSeriesItem(series):
-	#a = selectArt(url=series['art'],tvdbId=series['tvdbId'])
+	#a = scrapper.selectArt(url=series['art'],tvdbId=series['tvdbId'])
 	#Log.Debug("art url for %s: %s"%(series['title'],a))#,series['art']))
 	art = series['art']
 	if art is None: art = ""
@@ -116,8 +24,8 @@ def makeSeriesItem(series):
 			SeriesMenu, 
 			title = series['title'],
 			summary=summaryString,
-			thumb=getThumbUrl(series['thumb'], tvdbId=series['tvdbId']), #Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
-			art = Function(getArt,url=art,tvdbId=series['tvdbId'])
+			thumb=scrapper.getThumbUrl(series['thumb'], tvdbId=series['tvdbId']), #Function(getThumb,url=series['thumb'],tvdbId=series['tvdbId']),
+			art = Function(GetArt,url=art,tvdbId=series['tvdbId'])
 		), seriesId=series['seriesId'], seriesTitle=series['title'])
 	return seriesItem
 
@@ -129,10 +37,10 @@ def makeSeasonItem(season):
 	"""
 	art = R(CRUNCHYROLL_ART)
 	if Dict['series'][str(season['seriesId'])]['tvdbId'] is not None:
-		artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(season['seriesId'])]['tvdbId'], season['seasonnum'])
+		artUrl = scrapper.getSeasonThumb(Dict['series'][str(season['seriesId'])]['tvdbId'], season['seasonnum'])
 		Log.Debug("arturl: %s"%artUrl)
 		if artUrl is not None:
-			art = Function(getArt,url=artUrl)
+			art = Function(GetArt,url=artUrl)
 	seasonItem = Function(
 
 		DirectoryItem(
@@ -181,8 +89,8 @@ def makeEpisodeItem(episode):
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
 				summary = createRatingString(episode['rating']) + summary,
-				thumb = Function(getThumb,url=episode['thumb']),
-				art=Function(getArt,url=getEpisodeArt(episode))
+				thumb = Function(GetThumb,url=episode['thumb']),
+				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
 				),
 				rating = episode['rating']
 			)
@@ -195,8 +103,8 @@ def makeEpisodeItem(episode):
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
 				summary = createRatingString(episode['rating']) + summary,
-				thumb = Function(getThumb,url=episode['thumb']),
-				art=Function(getArt,url=getEpisodeArt(episode))
+				thumb = Function(GetThumb,url=episode['thumb']),
+				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
 			),
 			episode=episode
 		)
@@ -206,8 +114,8 @@ def makeEpisodeItem(episode):
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
 				summary = createRatingString(episode['rating']) + summary,
-				thumb = Function(getThumb,url=episode['thumb']),
-				art=Function(getArt,url=getEpisodeArt(episode))
+				thumb = Function(GetThumb,url=episode['thumb']),
+				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
 			), 
 				# sadly, duration requires extra fetch, so it's not good to 
 				# do per episode
@@ -381,8 +289,8 @@ def makeQueueItem(queueInfo):
 		QueueItemMenu,
 		title=queueInfo['title'],
 		summary=s[sId]['description'],
-		thumb=Function(getThumb,url=thumb),
-		art=Function(getArt,url=art)
+		thumb=Function(GetThumb,url=thumb),
+		art=Function(GetArt,url=art)
 		), queueInfo=queueInfo)
 	return queueItem
 
@@ -415,7 +323,7 @@ def QueueItemMenu(sender,queueInfo):
 		PlayNext = makeEpisodeItem(nextEp)
 		dir.Append(PlayNext)
 	RemoveSeries = Function(DirectoryItem(RemoveFromQueue, title="Remove series from queue"), seriesId=sId)
-	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueInfo['seriesId'])
+	ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(GetArt,url=art)), seriesId=queueInfo['seriesId'])
 	dir.Append(RemoveSeries)
 	dir.Append(ViewSeries)
 	dir.noCache = 1
@@ -729,8 +637,8 @@ def ConstructTestVideo(episode)	:
 			title = episode['title'],
 			subtitle = "Season %s"%episode['season'],
 			summary = episode['summary'],
-			#thumb = Function(getThumb,url=episode['thumb']),
-			#art=Function(getArt,url=getEpisodeArt(episode))
+			#thumb = Function(GetThumb,url=episode['thumb']),
+			#art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
 		)
 	return episodeItem
 
@@ -811,31 +719,7 @@ def addMediaTests(dir):
 		# this actually borks consistently. I actually don't understand the point of VideoClipObject.
 		#dir.Append(VideoItem("http://www.crunchyroll.com/another/episode-1-rough-sketch-589572", title="Test services", summary="This is a test of url services. It should play."))
 
-import fanartScrapper
-
-def getEpisodeArt(episode):
-	"""
-	return the best background art URL for the passed episode.
-	"""
-	seriesId = None
-	for sk in Dict['series'].keys():
-		if Dict['series'][str(sk)]['title']==episode['seriesTitle']:
-			seriesId = int(sk)
-	if seriesId is not None:
-		artUrl = ""
-		if Dict['series'][str(seriesId)]['tvdbId'] is not None:
-			artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(seriesId)]['tvdbId'], episode['season'], rand=False)
-			#Log.Debug("arturl: %s"%artUrl)
-			if artUrl is not None:
-				art = Function(getArt,url=artUrl)
-		if artUrl == "" or artUrl is None:
-			artUrl = Dict['series'][str(seriesId)]['art']
-		if artUrl == "" or artUrl is None:
-			artUrl = R(CRUNCHYROLL_ART)
-	else:
-		artUrl = R(CRUNCHYROLL_ART)
-	Log.Debug("artUrl: %s"%artUrl)
-	return artUrl
+#import fanartScrapper
 
 def AdultWarning(sender, rating=5):
 	"""
@@ -905,6 +789,19 @@ def SeriesPopupMenu(sender, url, seriesId):
 	dir.Append(AddSeries)
 	#dir.Append(Function(DirectoryItem(DirMenu, "Save Local Link"), folderPath=os.path.join(os.path.expanduser("~"),"TV"), seriesId=seriesId, replace=False))
 	return dir
+
+
+def GetThumb(url, tvdbId=None):
+	"""
+	find a better thumb and return result
+	"""
+	return scrapper.getThumb(url,tvdbId)
+
+def GetArt(url,tvdbId=None):
+	"""
+	find a fanart url
+	"""
+	return scrapper.getArt(url, tvdbId)
 
 
 def getVideoUrl(videoInfo, resolution):

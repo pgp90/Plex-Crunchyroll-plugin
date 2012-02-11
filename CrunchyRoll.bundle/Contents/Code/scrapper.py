@@ -575,6 +575,129 @@ def getEpisodeListFromFeed(feed, sort=True):
 		# instead of returning None
 		return None
 
+def getEpisodeArt(episode):
+	"""
+	return the best background art URL for the passed episode.
+	"""
+	seriesId = None
+	for sk in Dict['series'].keys():
+		if Dict['series'][str(sk)]['title']==episode['seriesTitle']:
+			seriesId = int(sk)
+	if seriesId is not None:
+		artUrl = ""
+		if Dict['series'][str(seriesId)]['tvdbId'] is not None:
+			artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(seriesId)]['tvdbId'], episode['season'], rand=False)
+			#Log.Debug("arturl: %s"%artUrl)
+			if artUrl is not None:
+				art = Function(getArt,url=artUrl)
+		if artUrl == "" or artUrl is None:
+			artUrl = Dict['series'][str(seriesId)]['art']
+		if artUrl == "" or artUrl is None:
+			artUrl = R(CRUNCHYROLL_ART)
+	else:
+		artUrl = R(CRUNCHYROLL_ART)
+	Log.Debug("artUrl: %s"%artUrl)
+	return artUrl
+
+
+def getThumb(url,tvdbId=None):
+	"""
+	Try to find a better thumb than the one provided via url.
+	The thumb data returned is either an URL or the image data itself.
+	"""
+	ret = None
+	if (tvdbId is not None and Prefs['fanart'] is True):
+		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
+		if thumb is None: thumb = url
+		url=thumb
+	
+	if url==R(CRUNCHYROLL_ICON):
+		ret = url
+	else:
+		if url is not None:
+			try:
+				data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
+				if url.endswith(".jpg"):
+					ret = DataObject(data, 'image/jpeg')
+				elif url.endswith(".png"):
+					ret = DataObject(data, 'image/png')
+			except Exception, arg:
+				Log.Debug("#####Thumbnail couldn't be retrieved:")
+				Log.Error("#####" + repr(Exception) + repr(arg))
+				ret = None
+
+	if ret is None:
+		return R(CRUNCHYROLL_ICON)
+	else:
+		return ret
+
+def getThumbUrl(url, tvdbId=None):
+	"""
+	just get the best url instead of the image data itself.
+	this can help 'larger thumbs missing' issue
+	"""
+	if (tvdbId is not None and Prefs['fanart'] is True):
+		thumb = fanartScrapper.getRandImageOfTypes(tvdbId,['tvthumbs'])
+		if thumb is not None: return thumb
+
+
+	if url==R(CRUNCHYROLL_ICON):
+		return url
+	
+	return url
+
+def selectArt(url,tvdbId=None):
+	ret = None
+	if (tvdbId is not None and Prefs['fanart'] is True):
+		art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
+		if art is None: art = url
+		url=art
+	if url==R(CRUNCHYROLL_ART):
+		ret = url
+	else:
+		if url is not None:
+			ret = url
+		else:
+			ret = R(CRUNCHYROLL_ART)
+	#Log.Debug("art: %s"%ret)
+	return url#ret
+
+def getArt(url,tvdbId=None):
+	import urllib2
+	ret = None
+	if (tvdbId is not None and Prefs['fanart'] is True):
+		art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
+		if art is None: art = url
+		url=art
+	if url==R(CRUNCHYROLL_ART) or url is None or url is "":
+		req = urllib2.Request("http://127.0.0.1:32400"+R(CRUNCHYROLL_ART))
+		ret = DataObject(urllib2.urlopen(req).read(), 'image/jpeg')
+	else:
+		try:
+			#Log.Debug("url: %s"%url)
+			data = HTTP.Request(url, cacheTime=CACHE_1WEEK).content
+			if url.endswith(".jpg"):
+				ret = DataObject(data, 'image/jpeg')
+			elif url.endswith(".png"):
+				ret = DataObject(data, 'image/png')
+		except Exception,arg: 
+			Log.Debug("####Exception when grabbing art at '%s'" % url)
+			Log.Debug(repr(Exception) + repr(arg))
+		
+
+	if ret is None:
+		req = urllib2.Request("http://127.0.0.1:32400"+R(CRUNCHYROLL_ART))
+		return DataObject(urllib2.urlopen(req).read(), 'image/jpeg')
+	else:
+		return ret
+
+
+def getSeasonThumb(tvdbId, season, rand=True):
+	"""
+	pass it along to fanart scrapper
+	"""
+	return fanartScrapper.getSeasonThumb(tvdbId, season, rand)
+
 def stripHtml(html):
 	"""
 	return a string stripped of html tags
