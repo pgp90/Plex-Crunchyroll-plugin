@@ -17,15 +17,8 @@
 		"id": "quality",
 		"type": "enum",
 		"label": "Quality",
-		"values": ["SD", "480P", "720P", "1080P", "Highest Available", "Ask"],
-		"default": "Highest Available"
-	},
-	{
-		"id": "video_source",
-		"type": "enum",
-		"label": "Video Source",
-		"values": ["Web Player", "Boxee Stream", "Direct"],
-		"default": "Boxee Stream"
+		"values": ["SD", "480P", "720P", "1080P", "Ask"],
+		"default": "1080P"
 	},
 	{
 		"id": "thumb_quality",

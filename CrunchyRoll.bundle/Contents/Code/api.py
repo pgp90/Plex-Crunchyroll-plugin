@@ -4,7 +4,7 @@ plus some useful utilities that aren't interface items
 """
 
 from constants import *
-import time, os
+import time, os, re
 
 #for cookie wrangling:
 from Cookie import BaseCookie
@@ -208,6 +208,24 @@ def loginNotBlank():
 	if Prefs['username'] and Prefs['password']: return True
 	return False
 
+def setPrefResolution(res):
+	"""
+	change the preferred resolution serverside to integer res
+	"""
+	res2enum = {360:'12', 480:'20', 720:'21', 1080:'23'}
+	
+	response = makeAPIRequest(
+		{ 'req': "RpcApiUser_UpdateDefaultVideoQuality",
+		  'value': res2enum[res]
+		}
+		)
+	Log.Debug("####setPrefResolution() response: \n" + repr(response))
+	response = JSON.ObjectFromString(response)
+	if response.has_key("result_code") and response["result_code"] == '1':
+		return True
+	else:
+		return False
+	
 def removeFromQueue(seriesId):
 	"""
 	remove seriesID from queue
@@ -262,11 +280,14 @@ def transferCookiesToSafari():
 		
 		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
 		theList = plistlib.readPlist(filename)
-		theList.extend(appendThis)
-		#FIXME: This does not remove previous values!
-		# removing previous values takes time, so some cleverness might
-		# be in order
-		plistlib.writePlist(theList, filename)
+		finalCookies = appendThis
+		
+		# brute force replace
+		for item in theList:
+			if not "crunchyroll.com" in item['Domain']:
+				finalCookies.append(item)
+
+		plistlib.writePlist(finalCookies, filename)
 		return True
 	except Exception, arg:
 		Log.Error("#########transferCookiesToSafari() Exception occured:")

@@ -189,7 +189,7 @@ def Start():
 	if False: # doesn't work because cache won't accept a timeout value
 		for cacheThis in PRECACHE_URLS:
 			HTTP.PreCache(cacheThis, cacheTime=60*60*10)
-
+"""
 def CreatePrefs():
 	Prefs.Add(id='loginemail', type='text', default="", label='Login Email')
 	Prefs.Add(id='password', type='text', default="", label='Password', option='hidden')
@@ -199,7 +199,7 @@ def CreatePrefs():
 	Prefs.Add(id='restart', type='enum', values=["Resume", "Restart"], default="Restart", label="Resume or Restart")
 	Prefs.Add(id='hideMature', type='bool', default="true", label="Hide mature content?")
 	Prefs.Add(id='fanart', type='bool', default="false", label="Use Fanart.tv when possible?")
-
+"""
 
 def ValidatePrefs():
 	u = Prefs['username']
@@ -229,7 +229,7 @@ def ValidatePrefs():
 			api.logout()
 		except: pass
 		
-		if Prefs['quality'] != "SD" and Prefs['quality'] != "Highest Available":
+		if Prefs['quality'] != "SD": # and Prefs['quality'] != "Highest Available":
 			mc = MessageContainer("Quality Warning", "Only premium members can watch in high definition. Your videos will show in standard definiton only.")
 		else:
 			mc = MessageContainer("Success",
@@ -556,6 +556,7 @@ def DebugMenu(sender):
 	dir.Append(Function(DirectoryItem(ClearCookiesItem, "Clear Cookies", summary="This will remove the cookies from Plex's internal cookie storage.")) )
 	dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
 	dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
+	dir.Append(Function(InputDirectoryItem(SetPreferredResolution, "Set Preferred Resolution", prompt=L("Type in resolution"), summary="This sets the preferred resolution server-side. Valid values are 360,480,720,and 1080")) )
 	
 	return dir
 
@@ -633,6 +634,20 @@ def TransferCookiesItem(sender):
 		return MessageContainer("Cookies Transferred.", "Done.")
 	else:
 		return MessageContainer("Transfer Failed.", "Nastiness occured, check the console.")
+
+def SetPreferredResolution(sender, query):
+	try:
+		q = int(query)
+	except:
+		q = 0
+	
+	if q not in [360, 480, 720, 1080]:
+		return MessageContainer("Bad input", "You need to input one of 360, 480, 720, or 1080")
+	
+	if api.setPrefResolution(q):
+		return MessageContainer("Success", "Resolution changed to %i" % q)
+	else:
+		return MessageContainer("Failure", "Failed to change resolution, sorry!")
 	
 def ConstructTestVideo(episode)	:
 	episodeItem = \
@@ -690,11 +705,18 @@ def addMediaTests(dir):
 			},
 			{'title': "Puffy AmiYumi Interview",
 			'season': 'None',
-			'summary': "Freebie web content with standard URL. Currently nukes PMS alltogether with EXC_BAD_ACCESS.",
+			'summary': "Freebie web content with standard URL. You need to be logged out to view this without nasty cropping. LIKES TO CRASH PMS with BAD_ACCESS",
+			#'link':"http://www.crunchyroll.com/media-565187?p360=1&t=0&small=0&wide=0",
 			'link':"http://www.crunchyroll.com/puffy-amiyumi/-puffy-amiyumi-puffy-amiyumi-interview-565187?p360=1&t=0&small=0&wide=0",
 			'mediaId': '565187'
-			}
-			
+			},
+			{'title': "Puffy AmiYumi Interview Redirected",
+			'season': 'None',
+			'summary': "Freebie web content with standard URL. This URL redirects at CrunchyRoll.com, and will probably crash PMS with BAD_ACCESS.",
+			'link':"http://www.crunchyroll.com/media-565187?p360=1&t=0&small=0&wide=0",
+			#'link':"http://www.crunchyroll.com/puffy-amiyumi/-puffy-amiyumi-puffy-amiyumi-interview-565187?p360=1&t=0&small=0&wide=0",
+			'mediaId': '565187'
+			}			
 			
 			
 		]
@@ -702,17 +724,7 @@ def addMediaTests(dir):
 
 		for episode in testEpisodes:
 			dir.Append(ConstructTestVideo(episode))
-		#rtmpe://cp150757.edgefcs.net/ondemand/?auth=daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD&amp;aifp=0009&amp;slist=c6/s/ve709961/video.mp4
-		dir.Append(RTMPVideoItem(
-			url="rtmpe://cp150757.edgefcs.net/ondemand/?auth=daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD&amp;aifp=0009&amp;slist=c6/s/ve709961/video.mp4",
-#			clip="mp4:c6/s/ve709961/video.mp4", 
-			width=656,height=368, 
-			auth="daEc0dAbLdwa7atdKbHbxaOcDaacdbUd_bC-bpl6F5-dHa-nDJxstJAGuD",
-			aifp="0009",
-			title="The Mighty Chilwu Episode 1",
-			summary="This is an RTMPE stream. It shouldn't play, but if it does it should show ads and fit the borders." 
-			)
-		)
+
 		
 		vid = VideoClipObject(
 						url="http://www.crunchyroll.com/another/episode-1-rough-sketch-589572",
@@ -905,7 +917,7 @@ def PlayVideoMenu(sender, episode):
 	return dir
 
 def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
-	if Prefs['video_source'] == "Direct" and api.isPremium():
+	if api.isPremium():
 		return PlayVideoPremium(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 	else:
 		return PlayVideoFreebie(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
@@ -934,33 +946,35 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 	bestRes = int(bestRes)
 	
 	Log.Debug("Best res: " + str(bestRes))
+
+	# we need to tell server so they send the right quality
+	api.setPrefResolution(int(bestRes))
+			
+	# FIXME: have to account for drama vs anime premium!
+	modUrl = getVideoUrl(vidInfo, bestRes) # get past mature wall... hacky I know
 	
-	if api.isPremium(): # direct stream for premium users
-		# FIXME: have to account for drama vs anime premium!
-		modUrl = getVideoUrl(vidInfo, bestRes) # get past mature wall... hacky I know
-		
-		req = HTTP.Request(modUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
-		#Log.Debug("###########")
-		#Log.Debug(req.content)
+	req = HTTP.Request(modUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
+	#Log.Debug("###########")
+	#Log.Debug(req.content)
 
-		match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
-		if not match:
-			# bad news
-			Log.Error("###########Could not find direct swf link, trying hail mary pass...")
-			Log.Debug(req.content)
-			theUrl = theUrl
-		else:
-			theUrl = match.group(2)	+ "&__qual=" + str(bestRes)
-	else: # web player
-		Log.Debug("#######Using web player")
-		if modifyUrl is True:
-			theUrl = getVideoUrl(vidInfo, bestRes)
+	match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+	if not match:
+		# bad news
+		Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+		Log.Debug(req.content)
+		theUrl = theUrl
+	else:
+		theUrl = match.group(2)	+ "&__qual=" + str(bestRes)
 
+	# try a manual redirect since redirects crash entire PMS
+	import urllib2
+	req = urllib2.urlopen(theUrl)
+	theUrl = req.geturl() 
+	
 	Log.Debug("##########final URL is '%s'" % theUrl)
 	Log.Debug("##########duration: %s" % str(duration))
 	
-	#req = HTTP.Request(theUrl, immediate=True, cacheTime=0)
-	#Log.Debug(req.content)
+
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 	
 def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
@@ -979,6 +993,14 @@ def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None,
 		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
 		bestRes = 360 #scrapper.getPrefRes(resolutions)
 		theUrl = getVideoUrl(vidInfo, bestRes)
+
+	Log.Debug("###pre-redirect URL: %s" % theUrl)
+	# try a manual redirect since redirects crash entire PMS
+	import urllib2
+	req = urllib2.urlopen(theUrl)
+	theUrl = req.geturl() 
+	req.close()
+
 	Log.Debug("####Final URL: %s" % theUrl)
 	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
 	
