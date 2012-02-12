@@ -668,7 +668,7 @@ def addMediaTests(dir):
 		testEpisodes = [
 			{'title': 'Bleach Episode 1',
 			 'season': 'One',
-			 'summary': "480p Boxee feed. This needs a premium account. No ads should show! Plex client should show a resolution of 720x480, must not have any black edges on top or bottom. Play, pause, and seeking should work.",
+			 'summary': "480p Boxee feed. This needs a premium account. No ads should show! Plex client should show a resolution of 853x480. (I do not know the 480p url, or if there is one, so it'll probably display at 720p). It must not have any black edges on top or bottom. Play, pause, and seeking should work.",
 			 'link': 'http://www.crunchyroll.com/boxee_showmedia/543611&amp;bx-ourl=http://www.crunchyroll.com/bleach/543611',
 			 'mediaId': '543611',
 			},
@@ -687,15 +687,22 @@ def addMediaTests(dir):
 			},
 			{'title': 'Blue Exorcist Trailer',
 			  'season': 'None',
-			  'summary': '480p web page version. This needs a premium account. No ads should show! Plex client should show a resolution of 720x478, must not have black edges on top or bottom. Play, pause, and seek should work.',
+			  'summary': '480p web page version. This needs a premium account. No ads should show! Should crop badly, as it is not a direct stream (we go direct with premium accounts).',
 			  'link': 'http://www.crunchyroll.com/blue-exorcist/-blue-exorcist-blue-exorcist-official-trailer-577928?p480=1&small=0&wide=0',
 			  'mediaId': "577928"
 			},
 			{'title': 'Blue Exorcist Episode 1',
 			  'season': 'None',
-			  'summary': '360p web page version.  You really should log out to test this. You should get ads. Plex client should show resolution of ...',
+			  'summary': '360p web page version.  You really should log out to test this. You should get ads. Plex client should show resolution of 619x348',
 			  'link': 'http://www.crunchyroll.com/blue-exorcist/episode-1-the-devil-resides-in-human-souls-573636?p360=1&small=0&wide=0',
 			  'mediaId': "577928"
+			},
+			{
+			  'title':'Shugo Chara Episode 1',
+			  'season': "One",
+			  'summary': "360p default web page version, freebie. Should show resolution of 619x348. Should look borked if you're logged in.",
+			  'link': 'http://www.crunchyroll.com/shugo-chara/episode-1-a-guardian-character-is-born-509988?p360',
+			  'mediaId': '509988'
 			},
 			{'title': "Bleach 274 1080p",
 			'season': 'None',
@@ -927,7 +934,8 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 	# It's really easy to set resolution with direct grab of stream.
 	# Only premium members get better resolutions.
 	# so the solution is to have 2 destinations: freebie (web player), or premium (direct).
-	
+
+	api.login()
 	theUrl = url
 	resolutions = scrapper.getAvailResFromPage(url)
 	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)

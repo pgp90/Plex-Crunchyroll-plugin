@@ -7,8 +7,8 @@ premium members
 plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
 initialState="playing" version="2.0"
 windowHeight="392" 
-windowWidth="640">
-	<crop x="0" y="0" width="0" height="-32"/>
+windowWidth="648"> <!-- long width not important unless you want "advertisement" not to be cropped. We wish to have top& bottom flush -->
+	<crop x="4" y="0" width="640" height="-32"/>
 <!-- pausing works on this, but seeking is nasty -->
 <seekbar type="thumb">
 		<start x="82" y="-15"/>
