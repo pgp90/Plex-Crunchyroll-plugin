@@ -11,8 +11,8 @@ windowWidth="865"> <!-- not 16:9, bleh, so we crop it 12 pixels (sry) -->
 	<crop x="6" y="0" width="853" height="-32"/>
 <!-- pausing works on this, but seeking is nasty -->
 <seekbar type="thumb">
-		<start x="49" y="-15"/>
-		<end x="607" y="-15"/>
+		<start x="82" y="-15"/>
+		<end x="597" y="-15"/>
 		<played>
 			<color rgb="ffffff"/>
 		</played>

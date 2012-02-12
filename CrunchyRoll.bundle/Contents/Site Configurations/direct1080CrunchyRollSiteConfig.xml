@@ -9,10 +9,9 @@ initialState="playing" version="2.0"
 windowHeight="1112" 
 windowWidth="1920">
 	<crop x="0" y="0" width="0" height="-32"/>
-<!-- pausing works on this, but seeking is nasty -->
 <seekbar type="thumb">
-		<start x="82" y="-15"/>
-		<end x="1660" y="-15"/>
+		<start x="81" y="-15"/>
+		<end x="1652" y="-15"/>
 		<played>
 			<color rgb="ffffff"/>
 		</played>
@@ -40,25 +39,6 @@ windowWidth="1920">
 				<click x="20" y="-15"/>
 				<move x="0" y="0" />
 				<goto state="playing"/>
-			</action>
-		</event>
-		<event>
-			<condition>
-				<or>
-					<color x="19" y="-15" rgb="808080"/>
-					<color x="19" y="-15" rgb="333333"/>
-				</or>
-			</condition>
-			<action>
-				<goto state="playing"/>
-			</action>
-		</event>
-		<event>
-			<condition>
-				<color x="8" y="8" rgb="555555"/>
-			</condition>
-			<action>
-				<goto state="playing" />
 			</action>
 		</event>
 	</state>
