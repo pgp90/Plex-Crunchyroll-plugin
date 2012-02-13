@@ -1,9 +1,8 @@
+# -*- coding: utf-8 -*-
 from constants import *
 import tvdbscrapper, fanartScrapper
 import api
-
-
-
+	
 """
 schema inside Dict{}
 	all items (even movies) can be referenced by a the series dict.
@@ -76,6 +75,7 @@ Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest 
 # these bad boys are here to keep __init__.py from manipulating rss feeds directly
 # and to keep feed handling in one place.
 ###########
+
 def getPopularAnimeEpisodes():
 	"return a list of anime episode dicts that are currently popular"
 	return getEpisodeListFromFeed(POPULAR_ANIME_FEED, sort=False)
@@ -177,7 +177,50 @@ def getQueueList():
 		queueList.append(queueItem)
 	return queueList
 
+def getEpisodeDict(mediaId):
+	"""
+	return an episode dict object identified by mediaId.
+	If you know the mediaId, it SHOULD be in the cache already.
+	If not, you could get None if recovery doesn't work. This might 
+	happen with mediaId's that come from the great beyond 
+	(queue items on server, e.g.) and are in series with a lot of episodes.
+	Sry bout that.
+	"""
+	if str(mediaId) not in Dict['episodes']:
+		# get brutal
+		recoverEpisodeDict(mediaId)
+		
+	return Dict['episodes'].get(str(mediaId))
 
+def recoverEpisodeDict(mediaId):
+	"""
+	try everything possible to recover the episode info for
+	mediaId and save it in Dict{}. If it fails, return none.
+	"""
+	Log.Debug("#######recovering episode dictionary for mediaID %s" % str(mediaId))
+	# get a link with title in it.
+	import urllib2
+	req = urllib2.urlopen(BASE_URL+"/media-" + str(mediaId) + "?pskip_wall=1")
+	redirectedUrl = req.geturl()
+	req.close
+
+	redirectedUrl = redirectedUrl.replace("?pskip_wall=1", "")	
+	seriesName = redirectedUrl.split(".com/")[1].split("/")[0]
+	seriesUrl = seriesTitleToUrl(seriesName)
+	getEpisodeListFromFeed(seriesUrl) # for side-effect of caching episode
+	
+	if str(mediaId) in Dict['episodes']:
+		return Dict['episodes'][str(mediaId)]
+	
+	# FIXME
+	# not good so far, we need a feed that provides full episodes. Yikes.
+	# try grabbing from boxee_feeds
+	# need seriesID as in boxee_feeds/showseries/384855
+	# which can be retrieved from the seriesUrl contents, whew...
+	# alternatively, use http://www.crunchyroll.com/series-name/episodes
+	# which gives full episodes, but, well, is HTML and has less media info
+	return None
+	
 def cacheAllSeries():
 	#startTime = Datetime.Now()
 	seriesDict = Dict['series']
@@ -339,7 +382,7 @@ def getSeriesListFromFeed(feed, sort=True):
 	#midTime = Datetime.Now()
 	#Dict['series'] = seriesDict
 	if sort:
-		sortedSeriesList = sorted(seriesList, key=lambda k: k['title'])
+		sortedSeriesList = sorted(seriesList, key=lambda k: k['title'].lower().split("the",1)[-1].strip())
 	else:
 		sortedSeriesList = seriesList
 	#endTime = Datetime.Now()
@@ -401,6 +444,8 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 
 
 def getEpisodeListForSeries(seriesId):
+	#FIXME the series-name-bleh.rss feeds
+	# no longer provide us with all episodes, only the latest ~40
 	#Log.Debug("Dict['episodes']: %s"%Dict['episodes'])
 	if str(seriesId) not in Dict['series']:
 		cacheAllSeries()
@@ -484,7 +529,7 @@ def getEpisodeListFromFeed(feed, sort=True):
 		@parallelize
 		def parseEpisodeItems():
 			for item in items:
-				mediaId = int(item.xpath("./guid")[0].text.split("-")[1])
+				mediaId = int(item.xpath("./guid")[0].text.split("-")[-1])
 				@task
 				def parseEpisodeItem(item=item,mediaId=mediaId):
 					if not str(mediaId) in Dict['episodes']:
@@ -739,6 +784,11 @@ def getSeasonEpisodeListFromFeed(seriesId,season):
 
 
 def getVideoInfo(baseUrl, mediaId, availRes):
+
+	if not mediaId:
+		#occasionally this happens, so make sure it's noisy
+		raise Exception("#####getVideoInfo(): NO MEDIA ID, SORRY!")
+		
 	url = "http://www.crunchyroll.com/xml/?req=RpcApiVideoPlayer_GetStandardConfig&media_id=%s&video_format=102&video_quality=10&auto_play=1&show_pop_out_controls=1&pop_out_disable_message=Only+All-Access+Members+and+Anime+Members+can+pop+out+this" % mediaId
 	html = HTML.ElementFromURL(url)
 	episodeInfo = {}
@@ -849,6 +899,11 @@ def getPrefRes(availRes):
 	return chosenRes
 
 def getEpInfoFromLink(link):
+	#FIXME currently this works fine for Queue items, which include
+	# the title in the link, but should fail horribly
+	# with "www.crunchyroll.com/media-45768" style links
+	# which are given by feedburner, et. al.
+	# furthermore, rss feeds that we use to populate the Dict{} may not contain all episodes.
 	mediaId = getVideoMediaIdFromLink(link)
 	if not str(mediaId) in Dict['episodes']:
 		seriesname = link.split(".com/")[1].split("/")[0]

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 FANART_API_URL = "http://fanart.tv/api/fanart.php?id=%s&sort=nameasc"
 
 SEASON_IMAGE_FIX_LIST = {

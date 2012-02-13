@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 api holds functions that interface with crunchyroll.com,
 plus some useful utilities that aren't interface items
@@ -10,6 +11,17 @@ import time, os, re
 from Cookie import BaseCookie
 import plistlib
 from datetime import datetime, timedelta
+
+PREMIUM_TYPE_ANIME = '2'
+PREMIUM_TYPE_DRAMA = '4'
+
+def jsonRequest(valuesDict, referrer=None):
+	"""
+	convenience function. Return API request result as dict.
+	"""
+	response = makeAPIRequest(valuesDict, referrer)
+	response = JSON.ObjectFromString(response)
+	return response
 
 def makeAPIRequest(valuesDict,referrer=None):
 	"""
@@ -28,21 +40,52 @@ def makeAPIRequest(valuesDict,referrer=None):
 
 def makeAPIRequest2(data,referrer=None):
 	"""
-	using raw data string, make an API request. Return the result
+	using raw data string, make an API request. Return the result.
 	"""
 	h = API_HEADERS
 	if not referrer is None:
 		h['Referrer'] = referrer
 	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
-	req = HTTP.Request("http"+API_URL,data=data,cacheTime=0,immediate=True, headers=h)
+	req = HTTP.Request("https"+API_URL,data=data,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
 	return response
 
+def loginViaWeb():
+	# backup plan in case cookies go bonkers, not used.
+	data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
+	req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
+	HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
+
+def loginViaApi(authInfo):
+	loginSuccess = False
+	try:
+		response = jsonRequest(
+			{ "name": Prefs['username'], "password": Prefs['password'], "req": "RpcApiUser_Login" }
+			)
+		
+		if response.get('result_code') != 1:
+			Log.Error("###an error occured when logging in:")
+			Log.Error(response)
+		else:
+			Log.Debug(response)
+			authInfo['AnimePremium'] = (response.get('data').get('premium').get(PREMIUM_TYPE_ANIME) == 1)
+			authInfo['DramaPremium']= (response.get('data').get('premium').get(PREMIUM_TYPE_DRAMA) == 1)
+			loginSuccess = True
+			HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
+	except Exception, arg:
+		Log.Error("####Sorry, an error occured when logging in:")
+		Log.Error(repr(Exception) + " "  + repr(arg))
+		return False
+	
+	return loginSuccess
+	
 def loggedIn():
 	"""
 	Immediately check if user is logged in, and change global values to reflect status. 
 	DO NOT USE THIS A LOT. It requires a web fetch.
 	"""
+	# FIXME a better way would be to use API, but I don't know how to request status
+	# alternatively, might as well just login anyway if you're going to touch the network.
 	if not Dict['Authentication']:
 		resetAuthInfo()
 		
@@ -96,6 +139,7 @@ def login(force=False):
 
 	# this modifies Safari's cookies to be regular
 	
+	loginSuccess = False
 	if not Dict['Authentication'] : resetAuthInfo()
 	
 	authInfo = Dict['Authentication'] #dicts are mutable, so authInfo is a reference & will change Dict presumably
@@ -131,17 +175,11 @@ def login(force=False):
 			#save about 2 seconds
 			killSafariCookies()
 			HTTP.ClearCookies()
-		try:
-			data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-			req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
-			HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
-		except Exception, arg:
-			Log.Error("####Sorry, an error occured when logging in:")
-			Log.Error(repr(Exception) + " "  + repr(arg))
-			return False
+
+		loginSuccess = loginViaApi(authInfo)
 			
 		#check it
-		if loggedIn():
+		if loginSuccess or loggedIn():
 			authInfo['loggedInSince'] = time.time()
 			authInfo['failedLoginCount'] = 0
 			#Dict['Authentication'] = authInfo
@@ -171,11 +209,11 @@ def isPremium(epType=None):
 	Passing type=None will return True if the user is logged in. Any other type
 	returns false.
 	"""
+	login()
 	if not Dict['Authentication']: resetAuthInfo()
 	
 	authInfo = Dict['Authentication']
 	
-	login()
 	if (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
 		Log.Debug("#####we're in the login window")
 		if epType is None: return True
@@ -195,14 +233,15 @@ def logout():
 	"""
 	Immediately log the user out and clear all authentication info.
 	"""
-	req = HTTP.Request(url='https://www.crunchyroll.com/logout', immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
+	response = jsonRequest({'req':"RpcApiUser_Logout"})
 	
-	# tell plex who's boss
-	HTTP.ClearCookies()
-	killSafariCookies()
-	
-	#this turns every permission off:
-	resetAuthInfo()
+	if response.get('result_code') == 1:
+		# tell safari who's boss
+		HTTP.ClearCookies()
+		killSafariCookies()
+		
+		#this turns every permission off:
+		resetAuthInfo()
 
 def loginNotBlank():
 	if Prefs['username'] and Prefs['password']: return True
@@ -214,14 +253,14 @@ def setPrefResolution(res):
 	"""
 	res2enum = {360:'12', 480:'20', 720:'21', 1080:'23'}
 	
-	response = makeAPIRequest(
+	response = jsonRequest(
 		{ 'req': "RpcApiUser_UpdateDefaultVideoQuality",
 		  'value': res2enum[res]
 		}
 		)
 	Log.Debug("####setPrefResolution() response: \n" + repr(response))
-	response = JSON.ObjectFromString(response)
-	if response.has_key("result_code") and response["result_code"] == '1':
+
+	if response.get('result_code') == 1:
 		return True
 	else:
 		return False

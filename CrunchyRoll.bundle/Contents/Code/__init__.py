@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from constants import *
 import api
 import re
@@ -9,6 +10,10 @@ HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
 import scrapper
 	
 def makeSeriesItem(series):
+	"""
+	create a directory item out of the passed dict 
+	that the user can click on to enter its episode list
+	"""
 	#a = scrapper.selectArt(url=series['art'],tvdbId=series['tvdbId'])
 	#Log.Debug("art url for %s: %s"%(series['title'],a))#,series['art']))
 	art = series['art']
@@ -106,7 +111,7 @@ def makeEpisodeItem(episode):
 				thumb = Function(GetThumb,url=episode['thumb']),
 				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
 			),
-			episode=episode
+			mediaId=episode['mediaId']
 		)
 	else:
 		episodeItem = Function(
@@ -117,14 +122,10 @@ def makeEpisodeItem(episode):
 				thumb = Function(GetThumb,url=episode['thumb']),
 				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
 			), 
-				# sadly, duration requires extra fetch, so it's not good to 
-				# do per episode
-				url=episode['link'], title=episode['title'], duration=0, summary=createRatingString(episode['rating']) + " " + summary,
-				mediaId = episode['mediaId'],
-				modifyUrl=True
+				mediaId=episode['mediaId']
 		)
 	return episodeItem
-
+	
 def createRatingString(ratingLevel, append="\n"):
 	"""
 	Given a safe surf rating level integer, return a human-understandable string in a form like:
@@ -164,7 +165,7 @@ def Start():
 	Let's roll.
 	"""
 	Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
-	Plugin.AddViewGroup("List", viewMode = "List", mediaType = "Reverse Engineer the kinds of values allowed here someday")
+	Plugin.AddViewGroup("List", viewMode = "List", mediaType = "List")
 	MediaContainer.art = R(CRUNCHYROLL_ART)
 	MediaContainer.title1 = "CrunchyRoll"
 	MediaContainer.viewGroup = "List"
@@ -238,6 +239,7 @@ def ValidatePrefs():
 		return mc
 
 def TopMenu():
+	"from which all greatness springs."
 	api.login()
 
 	if CHECK_PLAYER is True:
@@ -248,7 +250,7 @@ def TopMenu():
 	if api.isPremium():
 		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
 
-	dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="RecentAdditions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))	
+	dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="Recent Additions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))	
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
 	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
 	dir.Append(Function(InputDirectoryItem(SearchMenu, "Search...", thumb=R(SEARCH_ICON), prompt=L("Search for videos..."), ART=R(CRUNCHYROLL_ART))))
@@ -268,8 +270,8 @@ def QueueMenu(sender):
 	"""
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
 	queueList = scrapper.getQueueList()
-	for queue in queueList:
-		dir.Append(makeQueueItem(queue))
+	for queueInfo in queueList:
+		dir.Append(makeQueueItem(queueInfo))
 	dir.noCache = 1
 	return dir
 
@@ -346,7 +348,7 @@ def RecentAdditionsMenu(sender):
 
 def SearchMenu(sender, query=""):
 	"""
-	search boxee_feeds and return results in a media container
+	search cruncyroll.com/rss and return results in a media container
 	"""
 	episodeList = scrapper.getEpisodeListFromQuery(query)
 	if episodeList:
@@ -373,12 +375,7 @@ def BrowseMenu(sender,type=None):
 		
 	dir = MediaContainer(disabledViewModes=["coverflow"], title1="Browse %s" % type)
 	
-	if type== ANIME_TYPE:
-		dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
-
-	else:
-		dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
-
+	dir.Append(Function(DirectoryItem(AlphaListMenu,"All", title1="All", thumb=R(all_icon)), type=type))
 	dir.Append(Function(DirectoryItem(RecentListMenu,"Recent", title1="Recent", thumb=R(all_icon)), type=type))
 	
 	if type == ANIME_TYPE:
@@ -457,7 +454,6 @@ def PopularListMenu(sender,type=None):
 	dtime = Datetime.Now()-startTime
 	Log.Debug("PopularListMenu %s execution time: %s"%(type, dtime))
 	return dir
-
 
 def GenreListMenu(sender,type=None,genre=None):
 	"""
@@ -573,7 +569,7 @@ def DumpInfo(sender):
 def ClearAllData(sender):
 	HTTP.ClearCookies()
 	HTTP.ClearCache()
-	Dict.Reset()
+	Dict.Reset() #OMG this doesn't work. Just delete the file at Plug-in support/com.plexapp.plugins.CrunchyRoll
 	Dict.Save()
 	Log.Debug(Prefs)
 #	Prefs = {}
@@ -626,7 +622,7 @@ def ClearCookiesItem(sender):
 	return MessageContainer("Cookies Cleared", "For whatever it's worth, cookies are gone now.")
 
 def KillSafariCookiesItem(sender):
-	killSafariCookies()
+	api.killSafariCookies()
 	return MessageContainer("Cookies Cleared", "All cookies from crunchyroll.com have been removed from Safari")
 
 def TransferCookiesItem(sender):
@@ -882,24 +878,26 @@ def constructMediaObject(episode):
 	dir = ObjectContainer( objects = [epsObject])
 	return dir
 
-def PlayVideoMenu2(sender, episode):
+def PlayVideoMenu2(sender, mediaId):
 	"""
 	use more code to accomplish less.
 	"""
-	return constructMediaObject(episode)
+	episode = scrapper.getEpisodeDict(mediaId)
+	return constructMediaObject(mediaId)
 	
-def PlayVideoMenu(sender, episode):
+def PlayVideoMenu(sender, mediaId):
 	"""
 	construct and return a MediaContainer that will ask the user
 	which resolution of video she'd like to play for episode
 	"""
+	episode = scrapper.getEpisodeDict(mediaId)
 	startTime = Datetime.Now()
 	dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
 	if len(episode['availableResolutions']) == 0:
 		episode['availableResolutions'] = scrapper.getAvailResFromPage(episode['link'])
 		
 		# FIXME I guess it's better to have something than nothing? It was giving Key error
-		# on episode number
+		# on episode number (kinda silly now since we require the cache...)
 		if str(episode['mediaId']) not in Dict['episodes']:
 			Dict['episodes'][str(episode['mediaId'])] = episode
 	
@@ -910,45 +908,42 @@ def PlayVideoMenu(sender, episode):
 	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
 			videoUrl = getVideoUrl(videoInfo, q)
-			episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q]), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
+			episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q]), mediaId=episode['mediaId'], resolution=q )
 			dir.Append(episodeItem)
 	else:
 		Log.Debug("##############QUALITY IS NOT ASK")
 		prefRes = scrapper.getPrefRes(episode['availableResolutions'])
 		videoUrl = getVideoUrl(videoInfo, prefRes)
 		buttonText = "Play at %sp" % str(prefRes)
-		episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText), url=videoUrl, title=episode['title'], duration=videoInfo['duration'], summary=episode['description'])
+		episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText), mediaId=episode['mediaId'], resolution = prefRes)
 		dir.Append(episodeItem)
 	dtime = Datetime.Now()-startTime
 	Log.Debug("PlayVideoMenu (%s) execution time: %s"%(episode['title'], dtime))
 	return dir
 
-def PlayVideo(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
 	if api.isPremium():
-		return PlayVideoPremium(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+		return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 	else:
-		return PlayVideoFreebie(sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+		return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 
-def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+def PlayVideoPremium(sender, mediaId, resolution):
 	# mkayy, new strategy. It's difficult to know how to acheive 1080p with boxee (or web player!). 
 	# It's really easy to set resolution with direct grab of stream.
 	# Only premium members get better resolutions.
 	# so the solution is to have 2 destinations: freebie (web player), or premium (direct).
 
 	api.login()
-	theUrl = url
-	resolutions = scrapper.getAvailResFromPage(url)
-	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
+	episode = scrapper.getEpisodeDict(mediaId)
+	theUrl = episode['link']
+	resolutions = scrapper.getAvailResFromPage(theUrl)
+	vidInfo = scrapper.getVideoInfo(theUrl, mediaId, resolutions)
 	vidInfo['small'] = 0
 	duration = vidInfo['duration'] # need this because duration isn't known until now
 
-	bestRes = 360
+	bestRes = resolution
 
-	if Prefs['quality'] == "Ask":
-		m = re.search(r'\?p(\d+)', url)
-		if m:
-			bestRes = m.group(1)
-	else:	
+	if Prefs['quality'] != "Ask":
 		bestRes = scrapper.getPrefRes(resolutions)
 	
 	bestRes = int(bestRes)
@@ -978,29 +973,23 @@ def PlayVideoPremium(sender, url, title, duration, summary = None, mediaId=None,
 	import urllib2
 	req = urllib2.urlopen(theUrl)
 	theUrl = req.geturl() 
+	req.close()
 	
 	Log.Debug("##########final URL is '%s'" % theUrl)
 	Log.Debug("##########duration: %s" % str(duration))
 	
 
-	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
+	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
 	
-def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+def PlayVideoFreebie(sender, mediaId): # url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
 	"""
 	Freebie video is easy.
 	"""
-	#FIXME all video playing should be done by mediaId, letting scrapper
-	# deal with the details.
-	theUrl = url
-	resolutions = scrapper.getAvailResFromPage(url)
-	vidInfo = scrapper.getVideoInfo(url, mediaId, resolutions)
-	duration = vidInfo['duration'] # need this because duration isn't known until now
-	
-	
-	if modifyUrl is True:
-		vidInfo['small'] = False # let's just blow all the checks, man. If res isn't shown on the page, it can't be played		
-		bestRes = 360 #scrapper.getPrefRes(resolutions)
-		theUrl = getVideoUrl(vidInfo, bestRes)
+	episode = scrapper.getEpisodeDict(mediaId)
+	theUrl = episode['link']
+	Log.Debug("#### the link is %s" % theUrl)
+	vidInfo = scrapper.getVideoInfo(theUrl, mediaId, [360])	# need this for duration
+	theUrl = theUrl+ "?p360=1&skip_wall=1&t=0&small=0&wide=0"
 
 	Log.Debug("###pre-redirect URL: %s" % theUrl)
 	# try a manual redirect since redirects crash entire PMS
@@ -1010,7 +999,7 @@ def PlayVideoFreebie(sender, url, title, duration, summary = None, mediaId=None,
 	req.close()
 
 	Log.Debug("####Final URL: %s" % theUrl)
-	return Redirect(WebVideoItem(theUrl, title = title, duration = duration, summary = summary))
+	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = vidInfo['duration'], summary = makeEpisodeSummary(episode)))
 	
 def listElt(url):
 	page = HTML.ElementFromURL(url)
