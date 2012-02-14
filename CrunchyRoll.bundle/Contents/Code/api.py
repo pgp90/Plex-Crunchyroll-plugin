@@ -110,9 +110,9 @@ def loggedIn():
 		
 		Dict['Authentication'] = authInfo #FIXME: needed?
 		
-		Log.Debug("#####You are authorized for premium content, have a nice day.")
-		Log.Debug("#####AnimePremium member: %s" % ("yes" if authInfo['AnimePremium'] else "no"))
-		Log.Debug("#####DramaPremium member: %s" % ("yes" if authInfo['DramaPremium'] else "no"))
+		#Log.Debug("#####You are authorized for premium content, have a nice day.")
+		#Log.Debug("#####AnimePremium member: %s" % ("yes" if authInfo['AnimePremium'] else "no"))
+		#Log.Debug("#####DramaPremium member: %s" % ("yes" if authInfo['DramaPremium'] else "no"))
 		if not authInfo['AnimePremium'] and not authInfo['DramaPremium']: #WTF?
 			Log.Error("####Programmer does not know what he's doing withe Anime/Drama accounts. Apologies.")
 			Log.Debug(req.content)
@@ -150,7 +150,6 @@ def login(force=False):
 		if (force == False) and (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
 			return True
 
-		Log.Debug("#########Well\n forced is %s and loggedInTime is %f" % (repr(force), time.time() - authInfo['loggedInSince']) )
 		if force: 
 			HTTP.ClearCookies()
 			killSafariCookies()
@@ -161,14 +160,13 @@ def login(force=False):
 		if not force and authInfo['failedLoginCount'] > 2:
 			return False # Don't bash the server, just inform caller
 		
-		Log.Debug("#########checking log in")
 		if loggedIn():
 			authInfo['failedLoginCount'] = 0
 			authInfo['loggedInSince'] = time.time()
 			#Dict['Authentication'] = authInfo
 			return True
 		else:
-			Log.Debug("########WEB LOGIN CHECK FAILED, MUST LOG IN AGAIN")
+			Log.Debug("#####WEB LOGIN CHECK FAILED, MUST LOG IN MANUALLY")
 
 		# if we reach here, we must manually log in.
 		if not force:
@@ -215,18 +213,17 @@ def isPremium(epType=None):
 	authInfo = Dict['Authentication']
 	
 	if (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
-		Log.Debug("#####we're in the login window")
 		if epType is None: return True
 
 		if epType == ANIME_TYPE and authInfo['AnimePremium'] is True:
 			return True
 		elif epType == DRAMA_TYPE and authInfo['DramaPremium'] is True:
 			return True
-		Log.Debug("#####BUT neither Anime nor Drama Premium is set!")
+		Log.Debug("#####isPremium() neither Anime nor Drama Premium is set?")
 
 		return False #FIXME actually this should be an exception
 
-	Log.Debug("####you're not in the login grace period, too bad. t = %f" % (time.time()-authInfo['loggedInSince']))
+	#Log.Debug("####you're not in the login grace period, too bad. t = %f" % (time.time()-authInfo['loggedInSince']))
 	return False
 
 def logout():
@@ -258,7 +255,6 @@ def setPrefResolution(res):
 		  'value': res2enum[res]
 		}
 		)
-	Log.Debug("####setPrefResolution() response: \n" + repr(response))
 
 	if response.get('result_code') == 1:
 		return True
@@ -314,8 +310,8 @@ def transferCookiesToSafari():
 				'Value': v.value
 			}
 			appendThis.append(cookieDict)
-		Log.Debug("#######Transferring these cookies:")
-		Log.Debug(appendThis)
+		#Log.Debug("#######Transferring these cookies:")
+		#Log.Debug(appendThis)
 		
 		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
 		theList = plistlib.readPlist(filename)
@@ -351,9 +347,9 @@ def killSafariCookies():
 		if not "crunchyroll.com" in item['Domain']:
 			theSavedList.append(item)
 		else:
-			Log.Debug("######removing cookie:")
-			Log.Debug(item)
-		
+			#Log.Debug("######removing cookie:")
+			#Log.Debug(item)
+			pass
 	plistlib.writePlist(theSavedList, filename)
 	
 	

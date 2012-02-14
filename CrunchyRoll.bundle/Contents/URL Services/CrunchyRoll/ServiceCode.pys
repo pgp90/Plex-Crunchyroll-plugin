@@ -49,7 +49,8 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 
 
 def MetadataObjectForURL(url):
-	#Log.Debug("Dict.keys(): %s"%Dict.keys())
+	#Log.Debug("Dict.keys(): %s"%repr(Dict.keys()))
+	
 	Log.Debug("MetadataObjectForURL(%s)"%url)
 	seriesTitle = url.split("/")[3]
 	goalId = url.split("/")[4].split("?")[0].split("-")

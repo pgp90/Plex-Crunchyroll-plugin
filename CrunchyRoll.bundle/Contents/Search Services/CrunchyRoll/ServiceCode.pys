@@ -103,8 +103,8 @@ def getEpisodeListFromFeed(feed, sort=True):
 				"rating": rating
 			}
 			episodeList.append(episode)
-			Log.Debug("###########################EPISODE")
-			Log.Debug(episode)
+			#Log.Debug("###########################EPISODE")
+			#Log.Debug(episode)
 		if sort:
 			return sorted(episodeList, key=lambda k: k['episodeNum'])
 		else:

@@ -43,7 +43,7 @@ def makeSeasonItem(season):
 	art = R(CRUNCHYROLL_ART)
 	if Dict['series'][str(season['seriesId'])]['tvdbId'] is not None:
 		artUrl = scrapper.getSeasonThumb(Dict['series'][str(season['seriesId'])]['tvdbId'], season['seasonnum'])
-		Log.Debug("arturl: %s"%artUrl)
+		#Log.Debug("arturl: %s"%artUrl)
 		if artUrl is not None:
 			art = Function(GetArt,url=artUrl)
 	seasonItem = Function(
@@ -68,6 +68,8 @@ def makeEpisodeItem(episode):
 	need not make a choice, so go straight to the video (with a little
 	URL munging beforehand in PlayVideo())
 	"""
+	from datetime import datetime
+	
 	giveChoice = True
 	if Prefs['quality'] != "Ask":
 		#Log.Debug("Quality is not Ask")
@@ -79,13 +81,57 @@ def makeEpisodeItem(episode):
 		Log.Debug("User wants to choose res, but not a premium member")
 		giveChoice = False
 
-#	if giveChoice:
-#		Log.Debug("###############Giving Choice to user")
-#	else:
-#		Log.Debug("##################Not giving choice to user")
 	episodeItem = []
 	summary = makeEpisodeSummary(episode)
 	
+	# check if it's available.
+	# FIXME it's enjoyable to watch simulcasts count down, so
+	# maybe allow going to video if premium.
+	if episode:
+		cat = episode.get("category")
+		
+		if cat == "Anime":
+			checkCat = ANIME_TYPE
+		elif cat == "Drama":
+			checkCat = DRAMA_TYPE
+		else:
+			checkCat = None
+
+		available = True
+		
+		reason = "No date, assuming it's available"
+		if api.isPremium(checkCat):
+			availableAt = episode.get("premiumPubDate")
+			if availableAt != None:
+				if availableAt < datetime.utcnow():
+					available = True
+				else:
+					available = False
+					timeString = availableAt.strftime("%a, %d %b %Y %H:%M:%S %Z") + " GMT"
+					reason = "This video will be aired on %s." % timeString
+		else:
+			availableAt = episode.get("freePubDate")
+			if availableAt != None:
+				if availableAt < datetime.utcnow():
+					available = True
+				else:
+					available = False
+					timeString = availableAt.strftime("%a, %d %b %Y %H:%M:%S %Z") + " GMT"
+					reason = "Sorry, this video will be available for free users on %s" % timeString
+		
+		if not available:
+			episodeItem = Function(DirectoryItem(
+							NotAvailable,
+							title = episode['title'] + " (Available Soon)",
+							subtitle = "Season %s"%episode['season'],
+							summary = createRatingString(episode['rating']) + summary,
+							thumb = Function(GetThumb,url=episode['thumb']),
+							art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
+							),
+							reason = reason
+						)
+			return episodeItem
+						
 	# check the rating
 	if episode['rating'] and episode['rating'] > 4: # adult supervision from 5 up
 		if Prefs['hideMature'] is True:
@@ -100,7 +146,8 @@ def makeEpisodeItem(episode):
 				rating = episode['rating']
 			)
 			return episodeItem
-			
+	
+	
 	if giveChoice:
 		episodeItem = Function(
 			PopupDirectoryItem(
@@ -109,18 +156,22 @@ def makeEpisodeItem(episode):
 				subtitle = "Season %s"%episode['season'],
 				summary = createRatingString(episode['rating']) + summary,
 				thumb = Function(GetThumb,url=episode['thumb']),
-				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
+				art=Function(GetArt,url=scrapper.getEpisodeArt(episode)),				
 			),
 			mediaId=episode['mediaId']
 		)
 	else:
+		duration = episode.get('duration')
+		if not duration:
+			duration = 0
 		episodeItem = Function(
 			WebVideoItem(PlayVideo, 
 				title = episode['title'],
 				subtitle = "Season %s"%episode['season'],
 				summary = createRatingString(episode['rating']) + summary,
 				thumb = Function(GetThumb,url=episode['thumb']),
-				art=Function(GetArt,url=scrapper.getEpisodeArt(episode))
+				art=Function(GetArt,url=scrapper.getEpisodeArt(episode)),
+				duration = duration
 			), 
 				mediaId=episode['mediaId']
 		)
@@ -247,34 +298,41 @@ def TopMenu():
 	Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
 
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
-	if api.isPremium():
-		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
-
-	dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="Recent Additions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))	
-	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Browse Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
-	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Browse Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
+	
+	# show queue menu even if not logged in, since the cache will keep it hidden
+	# if user logs in later. Not ideal, but whatev. CR.com gets some advertising.
+	dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
+		
+	dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="Recent Additions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))
+	dir.Append(Function(DirectoryItem(PopularVideosMenu,"Popular Videos", title1="Popular Videos", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))	
+	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Anime", title1="Anime", thumb=R(ANIME_ICON), art=R(CRUNCHYROLL_ART)), type=ANIME_TYPE))
+	dir.Append(Function(DirectoryItem(BrowseMenu,"Browse Drama", title1="Drama", thumb=R(DRAMA_ICON), art=R(CRUNCHYROLL_ART)), type=DRAMA_TYPE))
 	dir.Append(Function(InputDirectoryItem(SearchMenu, "Search...", thumb=R(SEARCH_ICON), prompt=L("Search for videos..."), ART=R(CRUNCHYROLL_ART))))
 
 	dir.Append(PrefsItem(L('Preferences...'), thumb=R(PREFS_ICON), ART=R(CRUNCHYROLL_ART)))
+
 	if ENABLE_DEBUG_MENUS:
-		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON))) )
-	if ENABLE_DEBUG_MENUS:
+		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON)), advanced=True) )
 		# dir.noCache = 0 # ad hoc
-		pass
-	
+	elif ENABLE_UTILS:
+		# limited set of utilities, for production
+		dir.Append(Function(DirectoryItem(DebugMenu, "Utilities...", thumb=R(UTILS_ICON)), advanced=False))	
+
 	return dir
 
 def QueueMenu(sender):
 	"""
 	Show series titles that the user has in her queue
 	"""
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
-	queueList = scrapper.getQueueList()
-	for queueInfo in queueList:
-		dir.Append(makeQueueItem(queueInfo))
-	dir.noCache = 1
-	return dir
-
+	if api.isPremium():
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
+		queueList = scrapper.getQueueList()
+		for queueInfo in queueList:
+			dir.Append(makeQueueItem(queueInfo))
+		dir.noCache = 1
+		return dir
+	else:
+		return MessageContainer("Log in required", "You must be logged in to view your queue.")
 
 def makeQueueItem(queueInfo):
 	"""
@@ -331,6 +389,20 @@ def QueueItemMenu(sender,queueInfo):
 	dir.noCache = 1
 	return dir
 
+def PopularVideosMenu(sender):
+	"""
+	show popular videos.
+	"""
+	episodeList = scrapper.getPopularVideos()
+	if episodeList:
+		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
+		for episode in episodeList:
+			dir.Append(makeEpisodeItem(episode))
+		dir.noCache = 1
+		return dir
+	else:
+		return MessageContainer("No recent additions", "No recent videos found.")
+	
 def RecentAdditionsMenu(sender):
 	"""
 	show recently added videos
@@ -354,8 +426,6 @@ def SearchMenu(sender, query=""):
 	if episodeList:
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
 		for episode in episodeList:
-			#Log.Debug("#################################\n")
-			#Log.Debug(episode)
 			if episode.has_key('seriesTitle') and episode['seriesTitle'].lower() not in episode['title'].lower():
 				episode['title'] = episode['seriesTitle'] + ": " + episode['title']
 			dir.Append(makeEpisodeItem(episode))
@@ -542,20 +612,26 @@ def SeasonMenu(sender,seriesId=None,season=None):
 	return dir
 
 	
-def DebugMenu(sender):
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
-	dir.Append(Function(DirectoryItem(DumpInfo, "Dump info to console")) )
-	dir.Append(Function(DirectoryItem(ClearAllData, "Clear all data", summary="This removes cached metadata, and plex's cookies and cache. Prefs will still exist.")) )
-	dir.Append(Function(DirectoryItem(VideoTestMenu, "Test Videos...")) )
-	dir.Append(Function(DirectoryItem(LogoutFromMenu, "Logout now")) )
-	dir.Append(Function(DirectoryItem(LoginFromMenu, "Login now")) )
-	dir.Append(Function(DirectoryItem(ClearCookiesItem, "Clear Cookies", summary="This will remove the cookies from Plex's internal cookie storage.")) )
-	dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
-	dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
-	dir.Append(Function(InputDirectoryItem(SetPreferredResolution, "Set Preferred Resolution", prompt=L("Type in resolution"), summary="This sets the preferred resolution server-side. Valid values are 360,480,720,and 1080")) )
+def DebugMenu(sender, advanced=True):
+	if advanced: title = "Debug"
+	else: title = "Utilities"
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=title)
+	if advanced: 
+		dir.Append(Function(DirectoryItem(DumpInfo, "Dump info to console")) )
+		#FIXME: clear all data is useful, but allows anybody to clear all info, so let's keep it advanced for now
+		dir.Append(Function(DirectoryItem(ClearAllData, "Clear all data", summary="This removes cached metadata, and plex's cookies and cache. Prefs will still exist.")) )
+	if advanced:
+		dir.Append(Function(DirectoryItem(VideoTestMenu, "Test Videos...")) )
+	dir.Append(Function(DirectoryItem(LogoutFromMenu, "Log out now", summary="This will log you out and remove all related cookies.")) )
+	dir.Append(Function(DirectoryItem(LoginFromMenu, "Log in now", summary="This will force a clean login.")) )
+	if advanced:
+		dir.Append(Function(DirectoryItem(ClearCookiesItem, "Clear Cookies", summary="This will remove the cookies from Plex's internal cookie storage.")) )
+		dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
+		dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
+		dir.Append(Function(InputDirectoryItem(SetPreferredResolution, "Set Preferred Resolution", prompt=L("Type in resolution"), summary="This sets the preferred resolution server-side. Valid values are 360,480,720,and 1080")) )
 	
 	return dir
-
+	
 def DumpInfo(sender):
 
 	debugDict()
@@ -747,6 +823,8 @@ def AdultWarning(sender, rating=5):
 	"""
 	return MessageContainer("Adult Content", "Cannot play mature content unless you change your preferences.")
 
+def NotAvailable(sender, reason):
+	return MessageContainer("Not Available", reason)
 
 def RemoveFromQueue(sender,seriesId):
 	"""
@@ -844,8 +922,7 @@ def constructMediaObject(episode):
 	"""
 	if True or len(episode['availableResolutions']) == 0:
 		episode['availableResolutions'] = scrapper.getAvailResFromPage(episode['link'])
-		Log.Debug("####available resolutions:")
-		Log.Debug(episode['availableResolutions'])
+
 		# FIXME I guess it's better to have something than nothing? It was giving Key error
 		# on episode number
 		if str(episode['mediaId']) not in Dict['episodes']:
@@ -863,9 +940,12 @@ def constructMediaObject(episode):
 	)
 
 	for q in episode['availableResolutions']:
-
+		dur = episode.get('duration')
+		if not (dur and dur > 0):
+			dur = 0
+			
 		mo = MediaObject(
-				# duration = episode['duration'], #grr stupid duration isn't available w/o extra fetch
+				duration = dur,
 				video_resolution = q,
 				protocol = Protocol.WebKit,
 				parts = [
@@ -905,28 +985,50 @@ def PlayVideoMenu(sender, mediaId):
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
 	videoInfo['small'] = api.isPremium(episode['type']) is False
 
+	# duration must be specified before the redirect in PlayVideo()! If not, your device
+	# will not recognize the play time.
+	try:
+		duration = int(episode.get('duration'))
+	except TypeError:
+		duration = 0
+
 	if Prefs['quality'] == "Ask":
 		for q in episode['availableResolutions']:
 			videoUrl = getVideoUrl(videoInfo, q)
-			episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q]), mediaId=episode['mediaId'], resolution=q )
+			episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q], duration=duration), mediaId=episode['mediaId'], resolution=q )
 			dir.Append(episodeItem)
 	else:
-		Log.Debug("##############QUALITY IS NOT ASK")
 		prefRes = scrapper.getPrefRes(episode['availableResolutions'])
 		videoUrl = getVideoUrl(videoInfo, prefRes)
 		buttonText = "Play at %sp" % str(prefRes)
-		episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText), mediaId=episode['mediaId'], resolution = prefRes)
+		episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText, duration=duration), mediaId=episode['mediaId'], resolution = prefRes)
 		dir.Append(episodeItem)
 	dtime = Datetime.Now()-startTime
 	Log.Debug("PlayVideoMenu (%s) execution time: %s"%(episode['title'], dtime))
 	return dir
 
 def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
-	if api.isPremium():
-		return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
-	else:
-		return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+	from datetime import datetime
+	episode = scrapper.getEpisodeDict(mediaId)
+	if episode:
+		
+		cat = episode.get("category")
+		if cat == "Anime":
+			checkCat = ANIME_TYPE
+		elif cat == "Drama":
+			checkCat = DRAMA_TYPE
+		else:
+			checkCat = None
 
+					
+		if api.isPremium(checkCat):
+			return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+		else:
+			return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+	else:
+		# hm....
+		return None # messagecontainer doesn't work here.
+		
 def PlayVideoPremium(sender, mediaId, resolution):
 	# mkayy, new strategy. It's difficult to know how to acheive 1080p with boxee (or web player!). 
 	# It's really easy to set resolution with direct grab of stream.
@@ -939,7 +1041,11 @@ def PlayVideoPremium(sender, mediaId, resolution):
 	resolutions = scrapper.getAvailResFromPage(theUrl)
 	vidInfo = scrapper.getVideoInfo(theUrl, mediaId, resolutions)
 	vidInfo['small'] = 0
-	duration = vidInfo['duration'] # need this because duration isn't known until now
+
+	if episode.get('duration') and episode['duration'] > 0:
+		duration = episode['duration']
+	else:
+		duration = vidInfo['duration'] # need this because duration isn't known until now
 
 	bestRes = resolution
 
@@ -957,8 +1063,6 @@ def PlayVideoPremium(sender, mediaId, resolution):
 	modUrl = getVideoUrl(vidInfo, bestRes) # get past mature wall... hacky I know
 	
 	req = HTTP.Request(modUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
-	#Log.Debug("###########")
-	#Log.Debug(req.content)
 
 	match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
 	if not match:
@@ -976,7 +1080,7 @@ def PlayVideoPremium(sender, mediaId, resolution):
 	req.close()
 	
 	Log.Debug("##########final URL is '%s'" % theUrl)
-	Log.Debug("##########duration: %s" % str(duration))
+	#Log.Debug("##########duration: %s" % str(duration))
 	
 
 	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
@@ -987,8 +1091,13 @@ def PlayVideoFreebie(sender, mediaId): # url, title, duration, summary = None, m
 	"""
 	episode = scrapper.getEpisodeDict(mediaId)
 	theUrl = episode['link']
-	Log.Debug("#### the link is %s" % theUrl)
 	vidInfo = scrapper.getVideoInfo(theUrl, mediaId, [360])	# need this for duration
+
+	if episode.has_key('duration') and episode['duration'] > 0:
+		duration = episode['duration']
+	else:
+		duration = vidInfo['duration']
+		
 	theUrl = theUrl+ "?p360=1&skip_wall=1&t=0&small=0&wide=0"
 
 	Log.Debug("###pre-redirect URL: %s" % theUrl)
@@ -998,8 +1107,10 @@ def PlayVideoFreebie(sender, mediaId): # url, title, duration, summary = None, m
 	theUrl = req.geturl() 
 	req.close()
 
-	Log.Debug("####Final URL: %s" % theUrl)
-	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = vidInfo['duration'], summary = makeEpisodeSummary(episode)))
+	#Log.Debug("####Final URL: %s" % theUrl)
+	#Log.Debug("##########duration: %s" % str(duration))
+
+	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode)))
 	
 def listElt(url):
 	page = HTML.ElementFromURL(url)

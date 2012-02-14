@@ -1,5 +1,6 @@
 
-ENABLE_DEBUG_MENUS = True
+ENABLE_DEBUG_MENUS           = False
+ENABLE_UTILS                 = True
 
 BASE_URL                     = "http://www.crunchyroll.com"
 API_URL                      = "://www.crunchyroll.com/ajax/"
@@ -12,6 +13,8 @@ SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
 SERIES_FEED_BASE_URL         = "http://www.crunchyroll.com/boxee_feeds/"
 POPULAR_DRAMA_FEED           = "http://feeds.feedburner.com/crunchyroll/rss/drama/popular"
 POPULAR_ANIME_FEED           = "http://feeds.feedburner.com/crunchyroll/rss/anime/popular"
+POPULAR_FEED                 = "http://feeds.feedburner.com/crunchyroll/rss/popular"
+
 RECENT_ANIME_FEED            = "http://feeds.feedburner.com/crunchyroll/rss/anime"
 RECENT_DRAMA_FEED            = "http://feeds.feedburner.com/crunchyroll/rss/drama"
 RECENT_VIDEOS_FEED           = "http://feeds.feedburner.com/crunchyroll/rss"
@@ -27,7 +30,7 @@ SEARCH_ICON                  = CRUNCHYROLL_ICON # FIXME: there has to be a stand
 
 PREFS_ICON                   = 'icon-prefs.png'
 DEBUG_ICON                   = PREFS_ICON
-
+UTILS_ICON                   = PREFS_ICON
 
 THUMB_QUALITY                = {"Low":"_medium","Medium":"_large","High":"_full"}
 VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720", "1080P":"1080"}

@@ -68,7 +68,7 @@ SERIES_TITLE_URL_FIX = {
 "goshuushosama-ninomiya-kun":"good-luck-ninomiya-kun"
 }
 
-Boxee2Resolution = {'12':360, '20':480, '21':720}
+Boxee2Resolution = {'12':360, '20':480, '21':720, '23':1080}
 Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}
 
 ###########
@@ -83,6 +83,10 @@ def getPopularAnimeEpisodes():
 def getPopularDramaEpisodes():
 	"return a list of drama episode dicts that are currenly popular"
 	return getEpisodeListFromFeed(POPULAR_DRAMA_FEED, sort=False)
+
+def getPopularVideos():
+	"return the most popular videos."
+	return getEpisodeListFromFeed(POPULAR_FEED, sort=False)
 
 def getRecentVideos():
 	"return a list of episode dicts of recent videos of all types"
@@ -515,6 +519,7 @@ def CacheAll():
 
 
 def getEpisodeListFromFeed(feed, sort=True):
+	from datetime import datetime # more robust that Datetime
 	try:
 		episodeList = []
 		PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
@@ -551,7 +556,14 @@ def getEpisodeListFromFeed(feed, sort=True):
 							episodeNum = None
 						try: publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
 						except: publisher = ""
-						thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						
+						try: thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
+						except IndexError:
+							if "http://static.ak.crunchyroll.com/i/coming_soon_new_thumb.jpg" in description:
+								thumb = "http://static.ak.crunchyroll.com/i/coming_soon_new_thumb.jpg"
+							else:
+								thumb = "" # FIXME happens on newbie content, could be a bad idea b/c of cache.
+							
 						try: keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
 						except: keywords = ""
 						availableResolutions = [] # this isn't available with rss script (it is with boxee_feeds)
@@ -560,6 +572,17 @@ def getEpisodeListFromFeed(feed, sort=True):
 						except:
 							season = None
 							hasSeasons = False
+						
+						try:
+							duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
+						except (ValueError, IndexError, TypeError):
+							duration = -1
+							
+						try:
+							category = item.xpath("./crunchyroll:category", namespaces=PLUGIN_NAMESPACE)[0].text
+						except IndexError:
+							category = ""
+							
 						try:
 							rating = item.xpath("../rating")[0].text
 							Log.Debug(rating)
@@ -579,7 +602,6 @@ def getEpisodeListFromFeed(feed, sort=True):
 							# just pluck the age value from text that looks like:
 							# (PICS-1.1 &quot;http://www.classify.org/safesurf/&quot; l r (SS~~000 5))
 							ageLimit = re.sub(r'(.*\(SS~~\d{3}\s+)(\d)(\).*)', r'\2', rating)
-							Log.Debug(ageLimit)							
 							rating = int(ageLimit) # we don't care about the categories
 							
 						except (ValueError, IndexError, TypeError):
@@ -599,8 +621,22 @@ def getEpisodeListFromFeed(feed, sort=True):
 							"season": season,
 							"keywords": keywords,
 							"type": mediaType,
-							"rating": rating
+							"rating": rating,
+							"category": category
 						}
+						if duration > 0:
+							episode['duration'] = duration
+						
+						try:
+							premiumPubDate = datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, "%a, %d %b %Y %H:%M:%S %Z")
+							episode['premiumPubDate'] = premiumPubDate
+						except IndexError: pass
+						
+						try: 
+							freePubDate = datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, "%a, %d %b %Y %H:%M:%S %Z")
+							episode['freePubDate'] = freePubDate
+						except IndexError: pass
+						
 						Dict['episodes'][str(mediaId)] = episode
 					else:
 						episode = Dict['episodes'][str(mediaId)]
@@ -614,8 +650,8 @@ def getEpisodeListFromFeed(feed, sort=True):
 		Log.Error("#####We got ourselves a dagnabbit exception:")
 		Log.Error(repr(Exception) + repr(arg))
 		Log.Error("feed: %s" % feed)
-		Log.Error("Content:")
-		Log.Error(req.content)
+		#Log.Error("Content:")
+		#Log.Error(req.content) # too verbose, uncomment if needed
 		# maybe just pass the exception up the chain here
 		# instead of returning None
 		return None
@@ -667,8 +703,8 @@ def getThumb(url,tvdbId=None):
 				elif url.endswith(".png"):
 					ret = DataObject(data, 'image/png')
 			except Exception, arg:
-				Log.Debug("#####Thumbnail couldn't be retrieved:")
-				Log.Error("#####" + repr(Exception) + repr(arg))
+				Log.Error("#####Thumbnail couldn't be retrieved:")
+				Log.Error("#####" + repr(Exception) + repr(arg) + url)
 				ret = None
 
 	if ret is None:
@@ -726,8 +762,8 @@ def getArt(url,tvdbId=None):
 			elif url.endswith(".png"):
 				ret = DataObject(data, 'image/png')
 		except Exception,arg: 
-			Log.Debug("####Exception when grabbing art at '%s'" % url)
-			Log.Debug(repr(Exception) + repr(arg))
+			Log.Error("####Exception when grabbing art at '%s'" % url)
+			Log.Error(repr(Exception) + repr(arg))
 		
 
 	if ret is None:
@@ -844,8 +880,6 @@ def getAvailResFromPage(url):
 	
 	try: 
 		small = not isPremium()
-		if small:
-			Log.Debug("#######HEY, WE ARE NOT SIGNED IN")
 
 	except: small = False
 
@@ -862,8 +896,6 @@ def getAvailResFromPage(url):
 			Log.Error("####getAvalResFromPage() we got ourselves an exception:")
 			Log.Error(repr(Exception) + repr(arg))
 	
-	Log.Debug("##############AVAILABLE RES:")
-	Log.Debug(availRes)
 	return availRes
 
 

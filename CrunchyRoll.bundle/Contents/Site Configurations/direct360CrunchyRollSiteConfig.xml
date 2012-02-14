@@ -1,23 +1,26 @@
 <?xml version="1.0"?>
 <!-- this is for the direct .swf file, which can offer better resolutions for
-premium members
+premium members.
+
+Since I cannot modify the HTML content on the fly, there are no javascript possibilities.
 -->
 
 <site site="http://www.crunchyroll.com/swf/.*qual=360" 
 plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
-initialState="playing" version="2.0"
+initialState="waiting" version="2.0"
 windowHeight="392" 
 windowWidth="648"> <!-- long width not important unless you want "advertisement" not to be cropped. We wish to have top& bottom flush -->
 	<crop x="4" y="0" width="640" height="-32"/>
-<!-- pausing works on this, but seeking is nasty -->
-<seekbar type="thumb">
-		<start x="82" y="-15"/>
-		<end x="378" y="-15"/>
+<!-- pausing works on this, but seeking is nasty. It pauses on seek for unknown reasons, so DON'T SEEK-->
+	<seekbar type="thumb">
+		<start x="49" y="-15"/>
+		<end x="389" y="-15"/>
 		<played>
-			<color rgb="ffffff"/>
+			<color rgb="ffffff"/> <!-- f7931e is orange color underneath -->
 		</played>
 	</seekbar>
 
+	
 	<state name="playing">
 		<event>
 			<condition>
@@ -25,12 +28,40 @@ windowWidth="648"> <!-- long width not important unless you want "advertisement"
 			</condition>
 			<action>
 				<click x="20" y="-15"/>
-				<move x="0" y="0" />
+				<move x="50" y="50" />
+				<goto state="paused"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
 				<goto state="paused"/>
 			</action>
 		</event>
 	</state>
-
+	<state name="waiting">
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
+				<goto state="paused"/>
+			</action>
+		</event>	
+	</state>
 	<state name="paused">
 		<event>
 			<condition>
@@ -38,15 +69,15 @@ windowWidth="648"> <!-- long width not important unless you want "advertisement"
 			</condition>
 			<action>
 				<click x="20" y="-15"/>
-				<move x="0" y="0" />
+				<move x="50" y="500" />
 				<goto state="playing"/>
 			</action>
 		</event>
 		<event>
 			<condition>
 				<or>
-					<color x="19" y="-15" rgb="808080"/>
-					<color x="19" y="-15" rgb="333333"/>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
 				</or>
 			</condition>
 			<action>
