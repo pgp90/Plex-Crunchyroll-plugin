@@ -15,36 +15,36 @@ from datetime import datetime, timedelta
 PREMIUM_TYPE_ANIME = '2'
 PREMIUM_TYPE_DRAMA = '4'
 
-def jsonRequest(valuesDict, referrer=None):
+def jsonRequest(valuesDict, referer=None):
 	"""
 	convenience function. Return API request result as dict.
 	"""
-	response = makeAPIRequest(valuesDict, referrer)
+	response = makeAPIRequest(valuesDict, referer)
 	response = JSON.ObjectFromString(response)
 	return response
 
-def makeAPIRequest(valuesDict,referrer=None):
+def makeAPIRequest(valuesDict,referer=None):
 	"""
 	make a crunchyroll.com API request with the passed
-	dictionary. Optionally, specify referrer to prevent request
+	dictionary. Optionally, specify referer to prevent request
 	from choking.
 	"""
 	h = API_HEADERS
-	if not referrer is None:
-		h['Referrer'] = referrer
+	if not referer is None:
+		h['Referer'] = referer
 	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
 	req = HTTP.Request("https"+API_URL,values=valuesDict,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
 	return response
 
 
-def makeAPIRequest2(data,referrer=None):
+def makeAPIRequest2(data,referer=None):
 	"""
 	using raw data string, make an API request. Return the result.
 	"""
 	h = API_HEADERS
-	if not referrer is None:
-		h['Referrer'] = referrer
+	if not referer is None:
+		h['Referer'] = referer
 	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
 	req = HTTP.Request("https"+API_URL,data=data,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
@@ -53,7 +53,7 @@ def makeAPIRequest2(data,referrer=None):
 def loginViaWeb():
 	# backup plan in case cookies go bonkers, not used.
 	data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
-	req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referrer':'https://www.crunchyroll.com'})
+	req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
 	HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
 
 def loginViaApi(authInfo):
@@ -230,7 +230,7 @@ def logout():
 	"""
 	Immediately log the user out and clear all authentication info.
 	"""
-	response = jsonRequest({'req':"RpcApiUser_Logout"}, referrer="https://www.crunchyroll.com")
+	response = jsonRequest({'req':"RpcApiUser_Logout"}, referer="https://www.crunchyroll.com")
 	
 	# this doesn't seem to help. Cookies still infect the system somewhere (and it's NOT
 	# safari, i checked). So whatever. at best, we can try to be secure and fail. Good
