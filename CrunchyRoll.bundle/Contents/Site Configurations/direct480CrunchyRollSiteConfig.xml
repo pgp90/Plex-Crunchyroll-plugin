@@ -8,10 +8,13 @@ plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
 initialState="playing" version="2.0"
 windowHeight="512" 
 windowWidth="865"> <!-- not 16:9, bleh, so we crop it 12 pixels (sry) -->
+<!-- 480p is not precisely at ratio 853:480 at crunchyroll; it has some black pixels on the side.
+	It's not too bad, so cropping the top and bottom to get a full frame is not a good idea, 
+	as subtitles might get burned -->
 	<crop x="6" y="0" width="853" height="-32"/>
 <!-- pausing works on this, but seeking is nasty -->
 <seekbar type="thumb">
-		<start x="82" y="-15"/>
+		<start x="82" y="-15"/> <!-- x would be 48 if next episode button weren't there. -->
 		<end x="597" y="-15"/>
 		<played>
 			<color rgb="ffffff"/>
@@ -25,12 +28,40 @@ windowWidth="865"> <!-- not 16:9, bleh, so we crop it 12 pixels (sry) -->
 			</condition>
 			<action>
 				<click x="20" y="-15"/>
-				<move x="0" y="0" />
+				<move x="50" y="50" />
+				<goto state="paused"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
 				<goto state="paused"/>
 			</action>
 		</event>
 	</state>
-
+	<state name="waiting">
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
+				<goto state="paused"/>
+			</action>
+		</event>	
+	</state>
 	<state name="paused">
 		<event>
 			<condition>
@@ -38,10 +69,28 @@ windowWidth="865"> <!-- not 16:9, bleh, so we crop it 12 pixels (sry) -->
 			</condition>
 			<action>
 				<click x="20" y="-15"/>
-				<move x="0" y="0" />
+				<move x="50" y="500" />
 				<goto state="playing"/>
 			</action>
 		</event>
-	</state>
-	
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="8" y="8" rgb="555555"/>
+			</condition>
+			<action>
+				<goto state="playing" />
+			</action>
+		</event>
+	</state>	
 </site>

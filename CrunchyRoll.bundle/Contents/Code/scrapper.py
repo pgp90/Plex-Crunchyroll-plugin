@@ -224,7 +224,24 @@ def recoverEpisodeDict(mediaId):
 	# alternatively, use http://www.crunchyroll.com/series-name/episodes
 	# which gives full episodes, but, well, is HTML and has less media info
 	return None
-	
+
+def titleSort(dictList):
+	"""
+	sort list of dict by key 'title' and return the result
+	"""
+	res = sorted(dictList, key=lambda k: getSortTitle(k))
+	return res
+
+def getSortTitle(dictList):
+	"""
+	get the 'title' key and return the sortable title as string
+	"""
+	title = dictList['title'].lower().strip()
+	firstword = title.split(" ",1)[0]
+	if firstword in ['a', 'an', 'the']:
+		title = title.split(firstword, 1)[-1]
+	return title.strip()
+
 def cacheAllSeries():
 	#startTime = Datetime.Now()
 	seriesDict = Dict['series']
@@ -386,7 +403,7 @@ def getSeriesListFromFeed(feed, sort=True):
 	#midTime = Datetime.Now()
 	#Dict['series'] = seriesDict
 	if sort:
-		sortedSeriesList = sorted(seriesList, key=lambda k: k['title'].lower().split("the",1)[-1].strip())
+		sortedSeriesList = titleSort(seriesList)
 	else:
 		sortedSeriesList = seriesList
 	#endTime = Datetime.Now()

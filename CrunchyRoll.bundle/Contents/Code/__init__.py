@@ -87,6 +87,8 @@ def makeEpisodeItem(episode):
 	# check if it's available.
 	# FIXME it's enjoyable to watch simulcasts count down, so
 	# maybe allow going to video if premium.
+
+	# FIXME: directory caching could block recently available episodes?
 	if episode:
 		cat = episode.get("category")
 		
@@ -108,7 +110,7 @@ def makeEpisodeItem(episode):
 				else:
 					available = False
 					timeString = availableAt.strftime("%a, %d %b %Y %H:%M:%S %Z") + " GMT"
-					reason = "This video will be aired on %s." % timeString
+					reason = "This video will be aired for premium users on %s." % timeString
 		else:
 			availableAt = episode.get("freePubDate")
 			if availableAt != None:
@@ -116,13 +118,18 @@ def makeEpisodeItem(episode):
 					available = True
 				else:
 					available = False
-					timeString = availableAt.strftime("%a, %d %b %Y %H:%M:%S %Z") + " GMT"
-					reason = "Sorry, this video will be available for free users on %s" % timeString
+					# anything over 60 days we can call "unavailable". This eliminates crazy
+					# "available in year 2043" messages
+					if (datetime.utcnow() - availableAt).days > 60:
+						reason = "Sorry, this video is currently unavailable to free users."
+					else:
+						timeString = availableAt.strftime("%a, %d %b %Y %H:%M:%S %Z") + " GMT"
+						reason = "Sorry, this video will be available for free users on %s" % timeString
 		
 		if not available:
 			episodeItem = Function(DirectoryItem(
 							NotAvailable,
-							title = episode['title'] + " (Available Soon)",
+							title = episode['title'] + " (Not Yet Available)",
 							subtitle = "Season %s"%episode['season'],
 							summary = createRatingString(episode['rating']) + summary,
 							thumb = Function(GetThumb,url=episode['thumb']),
@@ -313,7 +320,7 @@ def TopMenu():
 
 	if ENABLE_DEBUG_MENUS:
 		dir.Append(Function(DirectoryItem(DebugMenu, "Debug...", thumb=R(DEBUG_ICON)), advanced=True) )
-		# dir.noCache = 0 # ad hoc
+		#dir.noCache = 0 # ad hoc
 	elif ENABLE_UTILS:
 		# limited set of utilities, for production
 		dir.Append(Function(DirectoryItem(DebugMenu, "Utilities...", thumb=R(UTILS_ICON)), advanced=False))	
@@ -324,12 +331,12 @@ def QueueMenu(sender):
 	"""
 	Show series titles that the user has in her queue
 	"""
+	# FIXME plex seems to cache this, so removing/adding doesn't give feedback
 	if api.isPremium():
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
 		queueList = scrapper.getQueueList()
 		for queueInfo in queueList:
 			dir.Append(makeQueueItem(queueInfo))
-		dir.noCache = 1
 		return dir
 	else:
 		return MessageContainer("Log in required", "You must be logged in to view your queue.")
@@ -471,11 +478,16 @@ def AlphaListMenu(sender,type=None,query=None):
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
 		if type==ANIME_TYPE:
 			seriesList = scrapper.getAnimeSeriesList()
-		else:
+		elif type==DRAMA_TYPE:
 			seriesList = scrapper.getDramaSeriesList()
+		else:
+			seriesList = scrapper.getAnimeSeriesList() + scrapper.getDramaSeriesList()
+			#sort again:
+			seriesList = scrapper.titleSort(seriesList)
 			
 		for series in seriesList:
-			if series['title'].startswith(queryCharacters):
+			sortTitle =  scrapper.getSortTitle(series)
+			if sortTitle.startswith(queryCharacters):
 				dir.Append(makeSeriesItem(series))
 		dtime = Datetime.Now()-startTime
 		Log.Debug("AlphaListMenu %s (%s) execution time: %s"%(type, query, dtime))
@@ -1009,6 +1021,10 @@ def PlayVideoMenu(sender, mediaId):
 
 def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
 	from datetime import datetime
+	
+	if Prefs['restart'] == "Restart":
+		api.deleteFlashJunk()
+
 	episode = scrapper.getEpisodeDict(mediaId)
 	if episode:
 		
@@ -1030,7 +1046,7 @@ def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary 
 		return None # messagecontainer doesn't work here.
 		
 def PlayVideoPremium(sender, mediaId, resolution):
-	# mkayy, new strategy. It's difficult to know how to acheive 1080p with boxee (or web player!). 
+	# It's difficult to know how to acheive 1080p with boxee (or web player!). 
 	# It's really easy to set resolution with direct grab of stream.
 	# Only premium members get better resolutions.
 	# so the solution is to have 2 destinations: freebie (web player), or premium (direct).
@@ -1107,10 +1123,48 @@ def PlayVideoFreebie(sender, mediaId): # url, title, duration, summary = None, m
 	theUrl = req.geturl() 
 	req.close()
 
-	#Log.Debug("####Final URL: %s" % theUrl)
-	#Log.Debug("##########duration: %s" % str(duration))
-
+	Log.Debug("####Final URL: %s" % theUrl)
+	Log.Debug("##########duration: %s" % str(duration))
+	#req = urllib2.urlopen(theUrl)
+	#html = req.read()
+	#Log.Debug(html)
+	
 	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode)))
+
+def PlayVideoFreebie2(sender, mediaId):
+	"""
+	Play a freebie video using the direct method. As long as crunchyroll.com delivers ads
+	through the direct stream (they do as of Feb 14 2012), this is okay IMO. This gets
+	around crashes with redirects/content changes of video page, and sacrifices the ability
+	to use javascript in the site config.
+	"""
+	episode = scrapper.getEpisodeDict(mediaId)
+	infoUrl = episode['link'] + "?p360=1&skip_wall=1&t=0&small=0&wide=0"
+
+	req = HTTP.Request(infoUrl, immediate=True, cacheTime=10*60*60)	#hm, cache time might mess up login/logout
+
+	match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+	if not match:
+		# bad news
+		Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+		Log.Debug(req.content)
+		theUrl = infoUrl
+	else:
+		theUrl = match.group(2)	+ "&__qual=360"
+
+	Log.Debug("###pre-redirect URL: %s" % theUrl)
+
+	# try a manual redirect since redirects crash entire PMS
+	import urllib2
+	req = urllib2.urlopen(theUrl)
+	theUrl = req.geturl() 
+	req.close()
+
+	Log.Debug("####Final URL: %s" % theUrl)
+	duration = episode.get('duration')
+	if not duration:  duration = 0
+	
+	return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
 	
 def listElt(url):
 	page = HTML.ElementFromURL(url)

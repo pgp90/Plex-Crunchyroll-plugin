@@ -230,15 +230,16 @@ def logout():
 	"""
 	Immediately log the user out and clear all authentication info.
 	"""
-	response = jsonRequest({'req':"RpcApiUser_Logout"})
+	response = jsonRequest({'req':"RpcApiUser_Logout"}, referrer="https://www.crunchyroll.com")
 	
-	if response.get('result_code') == 1:
-		# tell safari who's boss
-		HTTP.ClearCookies()
-		killSafariCookies()
-		
-		#this turns every permission off:
-		resetAuthInfo()
+	# this doesn't seem to help. Cookies still infect the system somewhere (and it's NOT
+	# safari, i checked). So whatever. at best, we can try to be secure and fail. Good
+	# faith, you know.
+	HTTP.ClearCookies()
+	killSafariCookies()
+	
+	#this turns every permission off:
+	resetAuthInfo()
 
 def loginNotBlank():
 	if Prefs['username'] and Prefs['password']: return True
@@ -379,6 +380,40 @@ def transferCookiesToPlex():
 		#FIXME: should I bother?
 		pass
 
+def deleteFlashJunk(folder=None):
+	"""
+	remove flash player storage from crunchyroll.com.
+	We need to remove everything, as just removing
+	'PersistentSettingsProxy.sol' (playhead resume info) leads 
+	to buggy player behavior.
+	"""
+	import platform
+	if platform.system() == "Darwin":
+		import os 
+		if not folder:
+			folder = os.path.expanduser('~/Library/Preferences/Macromedia/Flash Player/#SharedObjects')
+		try:
+			filelist = os.listdir(folder)
+		except OSError, e:
+			Log.Debug(e)
+			return False
+		
+		for the_file in filelist:
+			file_path = os.path.join(folder, the_file)
+			if os.path.isdir(file_path):
+				deleteFlashJunk(file_path)
+			elif os.path.isfile(file_path):
+				if "www.crunchyroll.com" in file_path:
+					Log.Debug("#####Found flash junk at %s" % file_path)
+					if True or "PersistentSettingsProxy.sol" in os.path.basename(file_path):
+						Log.Debug("#######Deleting %s" % file_path)
+						try:
+							os.unlink(file_path)
+							return True
+						except Exception, e:
+							Log.Debug( "Well, we tried")
+							Log.Debug(e)
+	return False
 
 ########## OLD STUFF FOR REFERENCE OR REVERT ####
 def loginAtStart_old():

@@ -13,8 +13,15 @@ windowWidth="648"> <!-- long width not important unless you want "advertisement"
 	<crop x="4" y="0" width="640" height="-32"/>
 <!-- pausing works on this, but seeking is nasty. It pauses on seek for unknown reasons, so DON'T SEEK-->
 	<seekbar type="thumb">
-		<start x="49" y="-15"/>
-		<end x="389" y="-15"/>
+		<!-- 
+		The starting x position of the seekbar thumb is different if there is a "go to next episode" 
+		button wedged between the play button and the seekbar.
+		From the perspective of a static site config, which can only declare facts,
+		this variance might as well be a supernatural event. So let's not worry about it, and 
+		accomodate the most common situation, which has the extra button. 
+		-->
+		<start x="80" y="-21"/> <!-- x would be 48 if next episode button weren't there. -->
+		<end x="389" y="-21"/> <!-- y value is right above the orange line to avoid false positives with ad point diamonds -->
 		<played>
 			<color rgb="ffffff"/> <!-- f7931e is orange color underneath -->
 		</played>
