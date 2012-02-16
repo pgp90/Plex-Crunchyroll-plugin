@@ -596,7 +596,7 @@ def getEpisodeListFromFeed(feed, sort=True):
 							duration = -1
 							
 						try:
-							category = item.xpath("./crunchyroll:category", namespaces=PLUGIN_NAMESPACE)[0].text
+							category = item.xpath("./category", namespaces=PLUGIN_NAMESPACE)[0].text
 						except IndexError:
 							category = ""
 							

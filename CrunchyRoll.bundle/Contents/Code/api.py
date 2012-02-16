@@ -113,9 +113,9 @@ def loggedIn():
 		#Log.Debug("#####You are authorized for premium content, have a nice day.")
 		#Log.Debug("#####AnimePremium member: %s" % ("yes" if authInfo['AnimePremium'] else "no"))
 		#Log.Debug("#####DramaPremium member: %s" % ("yes" if authInfo['DramaPremium'] else "no"))
-		if not authInfo['AnimePremium'] and not authInfo['DramaPremium']: #WTF?
-			Log.Error("####Programmer does not know what he's doing withe Anime/Drama accounts. Apologies.")
-			Log.Debug(req.content)
+		if not authInfo['AnimePremium'] and not authInfo['DramaPremium']: #possible if user is just registered
+			Log.Error("####Programmer does not know what to do with freebie registered users. Apologies.")
+			#Log.Debug(req.content)
 			
 	return authorized
 
@@ -207,6 +207,10 @@ def isPremium(epType=None):
 	Passing type=None will return True if the user is logged in. Any other type
 	returns false.
 	"""
+	#FIXME I thoroughly misunderstood the meaning of being logged in (ack!).
+	# One can be freebie, yet log in. This borks the logic used to choose
+	# resolution. 
+
 	login()
 	if not Dict['Authentication']: resetAuthInfo()
 	

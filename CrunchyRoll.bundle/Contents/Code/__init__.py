@@ -120,7 +120,7 @@ def makeEpisodeItem(episode):
 					available = False
 					# anything over 60 days we can call "unavailable". This eliminates crazy
 					# "available in year 2043" messages
-					if (datetime.utcnow() - availableAt).days > 60:
+					if (availableAt - datetime.utcnow()).days > 60:
 						reason = "Sorry, this video is currently unavailable to free users."
 					else:
 						timeString = availableAt.strftime("%a, %d %b %Y %H:%M:%S %Z") + " GMT"
