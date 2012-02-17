@@ -13,10 +13,12 @@ plugin="http://static.lln.crunchyroll.com/flash/20111227190142.0fa282dfa08cb8510
 <!-- current dimensions of freebie player at site: 624x360, 32 pixels for playbar, sometimes 614x360, so whatev. -->
 <!-- this crops it to 16:9 -->
 <!--	<crop x="17" y="0" width="580" height="-32"/> -->
-		<crop x="15" y="0" width="583" height="-32"/>
+<!--		<crop x="15" y="0" width="583" height="-32"/> -->
+		<crop x="0" y="0" width="0" height="-32"/> <!-- jesucristo, too many variations. So let's fuggetaboutit. -->
+
 	<seekbar type="thumb">
-		<start x="49" y="-15"/>
-		<end x="325" y="-15"/>
+		<start x="81" y="-21"/> <!-- x would be 48 if next episode button were gone -->
+		<end x="325" y="-21"/> <!-- -21 is above orange line to avoid the ad point diamonds -->
 		<played>
 			<color rgb="ffffff"/>
 		</played>

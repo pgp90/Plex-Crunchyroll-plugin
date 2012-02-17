@@ -23,7 +23,7 @@ CRUNCHYROLL_PLUGIN_PREFIX    = "/video/CrunchyRoll"
 CRUNCHYROLL_ART              = 'art-default3.jpg'
 CRUNCHYROLL_ICON             = 'icon-default.png'
 
-ANIME_ICON                   = CRUNCHYROLL_ICON#'icon-anime.png'
+ANIME_ICON                   = 'animeeye.png'
 DRAMA_ICON                   = CRUNCHYROLL_ICON#'icon-drama.png'
 QUEUE_ICON                   = CRUNCHYROLL_ICON#'icon-queue.png'
 SEARCH_ICON                  = CRUNCHYROLL_ICON # FIXME: there has to be a standard search icon somewhere...
@@ -41,8 +41,8 @@ PREMIUM_TYPE_DRAMA = '4'
 ANIME_TYPE = "Anime"
 DRAMA_TYPE = "Drama"
 
-# these USED to be long fetches, but now the rss feeds are truncated at cr.com to the latest 40 
-# episodes or so. Therefore, precaching doesn't matter much now
+# these are lengthy fetches which may cause timeouts, so try to precache, Which (of course)
+# doesn't allow setting a timeout value. Blech.
 PRECACHE_URLS = ["http://www.crunchyroll.com/bleach.rss", "http://www.crunchyroll.com/naruto-shippuden.rss"]
 
 Boxee2Resolution = {'12':360, '20':480, '21':720, '23':1080}
