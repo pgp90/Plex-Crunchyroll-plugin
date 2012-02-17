@@ -280,7 +280,7 @@ def setPrefResolution(res):
 	"""
 	change the preferred resolution serverside to integer res
 	"""
-	if isPaid():
+	if hasPaid():
 		res2enum = {360:'12', 480:'20', 720:'21', 1080:'23'}
 		
 		response = jsonRequest(
