@@ -199,6 +199,33 @@ def login(force=False):
 
 		return True # empty user is not authentication failure
 
+def isRegistered():
+	"""
+	is the user a registered user?
+	Registered users get to use their queue.
+	"""
+	if not login():
+		return False
+
+	if loginNotBlank():
+		return True
+
+def hasPaid():
+	"""
+	does the user own a paid account of any type?
+	"""
+	login()
+	if not Dict['Authentication']: resetAuthInfo()
+	
+	authInfo = Dict['Authentication']
+	
+	if (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
+		if authInfo['AnimePremium'] is True or authInfo['DramaPremium'] is True:
+			return True
+
+	return False
+
+	
 def isPremium(epType=None):
 	"""
 	return True if the user is logged in and has permissions to view extended content.
@@ -249,25 +276,28 @@ def setPrefResolution(res):
 	"""
 	change the preferred resolution serverside to integer res
 	"""
-	res2enum = {360:'12', 480:'20', 720:'21', 1080:'23'}
+	if isPaid():
+		res2enum = {360:'12', 480:'20', 720:'21', 1080:'23'}
+		
+		response = jsonRequest(
+			{ 'req': "RpcApiUser_UpdateDefaultVideoQuality",
+			  'value': res2enum[res]
+			}
+			)
 	
-	response = jsonRequest(
-		{ 'req': "RpcApiUser_UpdateDefaultVideoQuality",
-		  'value': res2enum[res]
-		}
-		)
+		if response.get('result_code') == 1:
+			return True
+		else:
+			return False
 
-	if response.get('result_code') == 1:
-		return True
-	else:
-		return False
-	
+	return False
+
 def removeFromQueue(seriesId):
 	"""
 	remove seriesID from queue
 	"""
 	login()
-	if not isPremium():
+	if not isRegistered():
 		return False
 	
 	response = makeAPIRequest2("req=RpcApiUserQueue_Delete&group_id=%s"%seriesId)
@@ -280,7 +310,7 @@ def addToQueue(seriesId):
 	Add seriesId to the queue.
 	"""
 	login()
-	if not isPremium():
+	if not isRegistered():
 		return False
 		
 	Log.Debug("add mediaid: %s"%seriesId)
@@ -293,41 +323,46 @@ def transferCookiesToSafari():
 	Copy all crunchyroll cookies from Plex's cookie storage
 	into Safari's Plist
 	"""
-
-	cookieString = HTTP.GetCookiesForURL(BASE_URL)
-	if not cookieString: return True
-
-	try:
-		theCookies = BaseCookie(cookieString)
-		appendThis = []
-		tomorrow = datetime.now() + timedelta((1))
-		for k, v in theCookies.items():
-			#Plex doesn't supply these, so:
-			cookieDict = {'Domain':".crunchyroll.com", 
-				'Path':"/", 
-				'Expires': tomorrow, 
-				'Created': time.time(),
-				'Name': k,
-				'Value': v.value
-			}
-			appendThis.append(cookieDict)
-		#Log.Debug("#######Transferring these cookies:")
-		#Log.Debug(appendThis)
+	import platform
+	if "darwin" in platform.system().lower():
 		
-		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-		theList = plistlib.readPlist(filename)
-		finalCookies = appendThis
-		
-		# brute force replace
-		for item in theList:
-			if not "crunchyroll.com" in item['Domain']:
-				finalCookies.append(item)
-
-		plistlib.writePlist(finalCookies, filename)
-		return True
-	except Exception, arg:
-		Log.Error("#########transferCookiesToSafari() Exception occured:")
-		Log.Error(repr(Exception) + " " + repr(arg))
+		cookieString = HTTP.GetCookiesForURL(BASE_URL)
+		if not cookieString: return True
+	
+		try:
+			theCookies = BaseCookie(cookieString)
+			appendThis = []
+			tomorrow = datetime.now() + timedelta((1))
+			for k, v in theCookies.items():
+				#Plex doesn't supply these, so:
+				cookieDict = {'Domain':".crunchyroll.com", 
+					'Path':"/", 
+					'Expires': tomorrow, 
+					'Created': time.time(),
+					'Name': k,
+					'Value': v.value
+				}
+				appendThis.append(cookieDict)
+			#Log.Debug("#######Transferring these cookies:")
+			#Log.Debug(appendThis)
+			
+			filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+			theList = plistlib.readPlist(filename)
+			finalCookies = appendThis
+			
+			# brute force replace
+			for item in theList:
+				if not "crunchyroll.com" in item['Domain']:
+					finalCookies.append(item)
+	
+			plistlib.writePlist(finalCookies, filename)
+			return True
+		except Exception, arg:
+			Log.Error("#########transferCookiesToSafari() Exception occured:")
+			Log.Error(repr(Exception) + " " + repr(arg))
+			return False
+	else:
+		Log.Error("####Removing webkit cookies from a non-Darwin system is unsupported.")
 		return False
 
 def killSafariCookies():
@@ -335,23 +370,24 @@ def killSafariCookies():
 	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
 	and save the result.
 	"""
-	import os.path, plistlib
-	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-	try:
-		theList = plistlib.readPlist(filename)
-	except IOError:
-		#hm, okay, whatev, no file or gimpiness, let's bail
-		return
-		
-	theSavedList = []
-	for item in theList:
-		if not "crunchyroll.com" in item['Domain']:
-			theSavedList.append(item)
-		else:
-			#Log.Debug("######removing cookie:")
-			#Log.Debug(item)
-			pass
-	plistlib.writePlist(theSavedList, filename)
+	import os.path, plistlib, platform
+	if "darwin" in platform.system().lower():
+		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+		try:
+			theList = plistlib.readPlist(filename)
+		except IOError:
+			#hm, okay, whatev, no file or gimpiness, let's bail
+			return
+			
+		theSavedList = []
+		for item in theList:
+			if not "crunchyroll.com" in item['Domain']:
+				theSavedList.append(item)
+			else:
+				#Log.Debug("######removing cookie:")
+				#Log.Debug(item)
+				pass
+		plistlib.writePlist(theSavedList, filename)
 	
 	
 def transferCookiesToPlex():
@@ -362,6 +398,8 @@ def transferCookiesToPlex():
 	keep the cookie situation <= fubar.
 	"""
 	# This function does nothing ATM
+	return
+	
 	import os.path, plistlib
 	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
 	try:
@@ -387,8 +425,12 @@ def deleteFlashJunk(folder=None):
 	'PersistentSettingsProxy.sol' (playhead resume info) leads 
 	to buggy player behavior.
 	"""
+	# in xp:
+	# C:\Documents and Settings\[Your Profile]\Application Data\Macromedia\Flash Player\#SharedObjects\[Random Name]\[Web Site Path]
+	# in Vista/7:
+	# C:\Users\[Your Profile]\AppData\Roaming\Macromedia\Flash Player\#SharedObjects\[Random Name]\[Web Site Path]
 	import platform
-	if platform.system() == "Darwin":
+	if "darwin" in platform.system().lower():
 		import os 
 		if not folder:
 			folder = os.path.expanduser('~/Library/Preferences/Macromedia/Flash Player/#SharedObjects')

@@ -71,15 +71,24 @@ def makeEpisodeItem(episode):
 	from datetime import datetime
 	
 	giveChoice = True
-	if Prefs['quality'] != "Ask":
+	if not api.hasPaid() or Prefs['quality'] != "Ask":
 		#Log.Debug("Quality is not Ask")
 		giveChoice = False
 	elif not Prefs['password'] or not Prefs['username']:
 		Log.Debug("User wants to choose res, but password is missing")
 		giveChoice = False
-	elif not api.isPremium():
-		Log.Debug("User wants to choose res, but not a premium member")
+	else:
+		# we need to check if this content has higher res for premium users
 		giveChoice = False
+
+		kind = str(episode.get('category'))
+		
+		if kind.lower() == "anime":
+			giveChoice = api.isPremium(ANIME_TYPE)
+		elif kind.lower() == "drama":
+			giveChoice = api.isPremium(DRAMA_TYPE)
+		else:
+			giveChoice = True # no category, so assume they get the choice.
 
 	episodeItem = []
 	summary = makeEpisodeSummary(episode)
@@ -89,7 +98,7 @@ def makeEpisodeItem(episode):
 	# maybe allow going to video if premium.
 
 	# FIXME: directory caching could block recently available episodes?
-	if episode:
+	if episode: #HUH? why check if episode is valid here, I forget...
 		cat = episode.get("category")
 		
 		if cat == "Anime":
@@ -102,7 +111,7 @@ def makeEpisodeItem(episode):
 		available = True
 		
 		reason = "No date, assuming it's available"
-		if api.isPremium(checkCat):
+		if api.hasPaid() and api.isPremium(checkCat):
 			availableAt = episode.get("premiumPubDate")
 			if availableAt != None:
 				if availableAt < datetime.utcnow():
@@ -332,7 +341,7 @@ def QueueMenu(sender):
 	Show series titles that the user has in her queue
 	"""
 	# FIXME plex seems to cache this, so removing/adding doesn't give feedback
-	if api.isPremium():
+	if api.isRegistered():
 		dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
 		queueList = scrapper.getQueueList()
 		for queueInfo in queueList:
@@ -576,7 +585,7 @@ def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
 	startTime = Datetime.Now()
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=seriesTitle)
 	
-	if api.login() and api.isPremium():
+	if api.login() and api.isRegistered():
 		dir.Append(
 			Function(PopupDirectoryItem(
 					QueueChangePopupMenu, 
@@ -698,7 +707,7 @@ def LoginFromMenu(sender):
 		result = api.login(force = True)
 		if not result:
 			dir = MessageContainer("Auth failed", "Authentication failed at crunchyroll.com")
-		elif api.isPremium():
+		elif api.isRegistered():
 			dir = MessageContainer("Login", "You are logged in, congrats.")
 		else:
 			dir = MessageContainer("Login Failure", "Sorry, bro, you didn't login!")
@@ -869,7 +878,7 @@ def QueueChangePopupMenu(sender, seriesId):
 	"""
 	api.login()
 	dir = MediaContainer(title1="Queue",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
-	if api.isPremium():
+	if api.isRegistered():
 		queueList = scrapper.getQueueList()
 		inQ = False
 		for item in queueList:
@@ -943,7 +952,7 @@ def constructMediaObject(episode):
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
-	videoInfo['small'] = api.isPremium(episode['type']) is False
+	videoInfo['small'] = (api.isPaid() and api.isPremium(episode.get('category'))) is False
 	
 	epsObject = EpisodeObject(
 		url = videoInfo['baseUrl'], #dunno if this will work
@@ -995,7 +1004,7 @@ def PlayVideoMenu(sender, mediaId):
 	
 		Dict['episodes'][str(episode['mediaId'])]['availableResolutions'] = episode['availableResolutions']
 	videoInfo = scrapper.getVideoInfo(episode['link'], episode['mediaId'], episode['availableResolutions'])
-	videoInfo['small'] = api.isPremium(episode['type']) is False
+	videoInfo['small'] = (api.hasPaid() and api.isPremium(episode.get("category"))) is False
 
 	# duration must be specified before the redirect in PlayVideo()! If not, your device
 	# will not recognize the play time.
@@ -1037,7 +1046,7 @@ def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary 
 			checkCat = None
 
 					
-		if api.isPremium(checkCat):
+		if api.hasPaid() and api.isPremium(checkCat):
 			return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 		else:
 			return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
