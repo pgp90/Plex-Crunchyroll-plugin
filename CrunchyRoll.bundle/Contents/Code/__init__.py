@@ -1049,7 +1049,7 @@ def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary 
 		if api.hasPaid() and api.isPremium(checkCat):
 			return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 		else:
-			return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+			return PlayVideoFreebie2(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
 	else:
 		# hm....
 		return None # messagecontainer doesn't work here.

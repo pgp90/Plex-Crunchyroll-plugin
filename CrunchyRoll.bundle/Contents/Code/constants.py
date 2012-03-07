@@ -26,7 +26,7 @@ CRUNCHYROLL_ICON             = 'icon-default.png'
 ANIME_ICON                   = 'animeeye.png'
 DRAMA_ICON                   = CRUNCHYROLL_ICON#'icon-drama.png'
 QUEUE_ICON                   = CRUNCHYROLL_ICON#'icon-queue.png'
-SEARCH_ICON                  = CRUNCHYROLL_ICON # FIXME: there has to be a standard search icon somewhere...
+SEARCH_ICON                  = "search.png"
 
 PREFS_ICON                   = 'icon-prefs.png'
 DEBUG_ICON                   = PREFS_ICON
