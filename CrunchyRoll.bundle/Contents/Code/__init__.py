@@ -1943,7 +1943,7 @@ def getQueueList():
 	for item in items:
 		title = item.xpath(".//span[@class='series-title ellipsis']")[0].text
 		seriesId = int(item.xpath("@series_id")[0].replace("queue_item_",""))
-		epToPlay = BASE_URL+item.xpath("//a[@itemprop='url']/@href")[0].split("?t=")[0]
+		epToPlay = BASE_URL+item.xpath(".//a[@itemprop='url']/@href")[0].split("?t=")[0]
 		
 		episodeTitle= item.xpath(".//a[@itemprop='url']/@title")[0]
 		episodeDescription = item.xpath(".//p[@itemprop='description']")
