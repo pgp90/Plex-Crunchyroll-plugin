@@ -1,5 +1,5 @@
 
-ENABLE_DEBUG_MENUS           = False
+ENABLE_DEBUG_MENUS           = True
 ENABLE_UTILS                 = True
 
 BASE_URL                     = "http://www.crunchyroll.com"

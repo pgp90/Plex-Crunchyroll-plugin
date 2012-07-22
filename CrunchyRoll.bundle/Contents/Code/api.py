@@ -2,6 +2,8 @@
 """
 api holds functions that interface with crunchyroll.com,
 plus some useful utilities that aren't interface items
+
+THIS IS UNUSED! All code has been merged into __init__.py
 """
 
 from constants import *
@@ -11,6 +13,7 @@ import time, os, re
 from Cookie import BaseCookie
 import plistlib
 from datetime import datetime, timedelta
+import scrapper
 
 PREMIUM_TYPE_ANIME = '2'
 PREMIUM_TYPE_DRAMA = '4'
@@ -374,8 +377,15 @@ def killSafariCookies():
 	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
 	and save the result.
 	"""
-	import os.path, plistlib, platform
-	if "darwin" in platform.system().lower():
+	import os
+	import plistlib
+	#Plex's sandboxing doesn't allow me to import platform,
+	# so let's not check for darwin and just fail.
+	# import platform
+	# isDarwin = "darwin" in platform.system().lower()
+	isDarwin = True # assume
+		
+	if isDarwin:
 		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
 		try:
 			theList = plistlib.readPlist(filename)

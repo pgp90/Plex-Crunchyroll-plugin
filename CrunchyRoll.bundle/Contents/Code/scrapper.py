@@ -1,8 +1,15 @@
 # -*- coding: utf-8 -*-
+
+# THIS MODULE IS UNUSED! All code has been merged into __init__.py
+
 from constants import *
 import tvdbscrapper, fanartScrapper
 import api
-	
+import re
+
+import urllib2
+import datetime # more robust than Datetime
+
 """
 schema inside Dict{}
 	all items (even movies) can be referenced by a the series dict.
@@ -203,7 +210,7 @@ def recoverEpisodeDict(mediaId):
 	"""
 	Log.Debug("#######recovering episode dictionary for mediaID %s" % str(mediaId))
 	# get a link with title in it.
-	import urllib2
+	#import urllib2
 	req = urllib2.urlopen(BASE_URL+"/media-" + str(mediaId) + "?pskip_wall=1")
 	redirectedUrl = req.geturl()
 	req.close
@@ -536,7 +543,7 @@ def CacheAll():
 
 
 def getEpisodeListFromFeed(feed, sort=True):
-	from datetime import datetime # more robust that Datetime
+	import datetime
 	try:
 		episodeList = []
 		PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
@@ -645,12 +652,13 @@ def getEpisodeListFromFeed(feed, sort=True):
 							episode['duration'] = duration
 						
 						try:
-							premiumPubDate = datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, "%a, %d %b %Y %H:%M:%S %Z")
-							episode['premiumPubDate'] = premiumPubDate
+							#premiumPubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, "%a, %d %b %Y %H:%M:%S %Z")
+							#episode['premiumPubDate'] = premiumPubDate
+							pass
 						except IndexError: pass
 						
 						try: 
-							freePubDate = datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, "%a, %d %b %Y %H:%M:%S %Z")
+							freePubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, "%a, %d %b %Y %H:%M:%S %Z")
 							episode['freePubDate'] = freePubDate
 						except IndexError: pass
 						
@@ -761,7 +769,6 @@ def selectArt(url,tvdbId=None):
 	return url#ret
 
 def getArt(url,tvdbId=None):
-	import urllib2
 	ret = None
 	if (tvdbId is not None and Prefs['fanart'] is True):
 		art = fanartScrapper.getRandImageOfTypes(tvdbId,['clearlogos','cleararts'])
