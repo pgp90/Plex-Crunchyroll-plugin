@@ -363,7 +363,7 @@ def makeQueueItem(queueInfo):
 	queueItem = Function(DirectoryItem(
 		QueueItemMenu,
 		title=queueInfo['title'],
-		summary=s[sId]['description'],
+		summary=queueInfo['nextUpText'] + queueInfo['episodeDescription'],
 		thumb=Function(GetThumb,url=thumb),
 		art=Function(GetArt,url=art)
 		), queueInfo=queueInfo)
@@ -1933,33 +1933,50 @@ def getSeriesByGenre(genre):
 
 	# FIXME: if there's overlap, we'll have dupes...	
 	return anime + drama
-	
+
 def getQueueList():
 	login()
 	queueURL = BASE_URL+"/queue"
 	queueHtml = HTML.ElementFromURL(queueURL,cacheTime=QUEUE_LIST_CACHE_TIME)
 	queueList = []
-	items = queueHtml.xpath("//div[@class='queue-container clearfix']/ul[@id='sortable']/li")
+	items = queueHtml.xpath("//div[@id='main_content']/ul[@id='sortable']/li[@class='queue-item']")
 	for item in items:
-		title = item.xpath("./div[@class='title']/a")[0].text.replace("\\\\","").lstrip("\n ").rstrip(" ")
-		seriesId = int(item.xpath(".")[0].get('id').replace("queue_item_",""))
-		try: epToPlay = BASE_URL+"/"+item.xpath("./div[@class='play']/button")[0].get('onclick').replace("window.location=\"\\/","").split("?t=")[0].replace("\\/","/")
-		except: epToPlay = None
-		try: seriesStatus = item.xpath("./div[@class='status']/span")[0].text.lstrip("\n ").rstrip(" ")
-		except: seriesStatus = item.xpath("./div[@class='status']")[0].text.lstrip("\n ").rstrip(" ")
-		if "Complete" in seriesStatus:
-			seriesStatus = "Complete"
+		title = item.xpath(".//span[@class='series-title ellipsis']")[0].text
+		seriesId = int(item.xpath("@series_id")[0].replace("queue_item_",""))
+		epToPlay = BASE_URL+item.xpath("//a[@itemprop='url']/@href")[0].split("?t=")[0]
+		
+		episodeTitle= item.xpath(".//a[@itemprop='url']/@title")[0]
+		episodeDescription = item.xpath(".//p[@itemprop='description']")
+
+		if episodeDescription:
+			episodeDescription = episodeDescription[0].text.strip('\n').strip()
 		else:
-			seriesStatus = "Ongoing"
+			episodeDescription = ""
+			
+		episodeMediaID = int(item.xpath("@media_id")[0])
+		
+		nextUpText = item.xpath(".//span[@class='series-data ellipsis']")[0].text
+		fixit = ""
+		for line in nextUpText.split('\n'):
+			fixit = fixit + line.strip('\n').strip() +'\n'
+
+		nextUpText = fixit
+
+		Log.Debug("##################################")
+				
 		queueItem = {
 			"title": title,
 			"seriesId": seriesId,
 			"epToPlay": epToPlay,
-			"seriesStatus": seriesStatus
+			"episodeTitle": episodeTitle,
+			"episodeDescription": episodeDescription,
+			"nextUpText": nextUpText,
+			"mediaID": episodeMediaID,
+			"seriesStatus": None
 		}
 		queueList.append(queueItem)
 	return queueList
-
+	
 def getEpisodeDict(mediaId):
 	"""
 	return an episode dict object identified by mediaId.
