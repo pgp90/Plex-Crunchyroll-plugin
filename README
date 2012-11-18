@@ -1,13 +1,18 @@
-This is a fork of Jacob Palnick's original Crunchyroll.com plugin for Plex, which can be found at https://github.com/pgp90/Plex-Crunchyroll-plugin
+This is a plugin for Plex Media Server that provides a Plex style interface to the CrunchyRoll web site and videos. This is still in development but currently has an almost completely functional and finished interface.
 
-This fork intends to make improvements and bugfixes to Jacob's already awesome work, rendering it solid enough that both subscribers and freebie users can watch crunchyroll from any device :-).
+This plugin is currently only supported for Mac OS X and Plex Media Server version 0.9.5.2 and up.
 
-You need OSX and Plex Media Server 0.9.5.2 to use this plugin. PLEASE NOTE that Plex is now separated into client (the video watcher) and server (the delivery) You need at least the server, AND version 0.9.5.2. You can get 0.9.5.2 here: http://www.plexapp.com/download/mac-download-new.php
+To install: 
+1. Drop CrunchyRoll.bundle into  '/Users/YOURNAME/Library/Application Support/Plex Media Server/Plug-ins/'
+2. Check "Disable capability checking" under Plex Media Server preferences->Advanced
+3. Restart PMS
+4. It should show up under Video Channels in a Plex client
 
-To install, drop CrunchyRoll.bundle into  '/Users/YOURNAME/Library/Application Support/Plex Media Server/Plug-ins/'. Also, click "Disable capability checking" under Plex Media Server preferences->Advanced. Restart PMS. It should show up under Video Channels in a Plex client (or on your Media Link tv, or whatever...).
+Future plans:
+   -Add support for windows version of PMS
+   -Try to get premium users full access when using URL service (myPlex or link from library or other plugin)
+   -submit to Plex as a full app
 
-Jacob says:
-This plugin is still being developed but can be used for the most part.
+This plugin was originally started by pgp90, but was maintained, updated and improved by JeremySH's MAJOR contributions. As such a big thank you to JeremySH for his work.
 
-Currently looking for help with the artwork (icons, background images). If you feel that you have a good image for 
-something please create an issue about it.
+If you have any thoughts, ideas, find a bug, or any other input or possible help, please feel free to create an issue.
