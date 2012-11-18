@@ -1954,11 +1954,11 @@ def getQueueList():
 		else:
 			episodeDescription = ""
 		"""
-		make sure item has an ID and does not error out from an empty string.
+		Make sure item has an ID and does not error out from an empty string.
 		Semms to be a very rare problem caused by some media renaming and reorganization.
 		"""
 		episodeMediaIDStr = item.xpath("@media_id")[0]
-		if not (episodeMediaIDStr is ""):
+		if not (episodeMediaIDStr == ""):
 			episodeMediaID = int(item.xpath("@media_id")[0])
 			
 			nextUpText = item.xpath(".//span[@class='series-data ellipsis']")[0].text
