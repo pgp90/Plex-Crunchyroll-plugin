@@ -595,6 +595,7 @@ def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
 				seriesId=seriesId )
 			)
 
+	Log.Debug("Loading episode list for series number " + str(seriesId))
 	episodes = getEpisodeListForSeries(seriesId)
 	if episodes['useSeasons'] is True:
 		seasonNums = episodes['seasons'].keys()
@@ -2274,7 +2275,8 @@ def getEpisodeListForSeries(seriesId):
 	if str(seriesId) not in Dict['series']:
 		cacheAllSeries()
 	seriesData = Dict['series'][str(seriesId)]
-	if seriesData['epList'] is None or seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=60) <= Datetime.Now():
+	#TODO return age time back to 60 minutes when done testing.
+	if seriesData['epList'] is None or seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=1) <= Datetime.Now():
 		epList = getEpisodeListFromFeed(seriesTitleToUrl(seriesData['title']))
 		seriesData['epsRetrived'] = Datetime.Now()
 		epIdList = []
@@ -2775,6 +2777,7 @@ def seriesTitleToUrl(title):
 	if title in SERIES_TITLE_URL_FIX.keys():
 		title = SERIES_TITLE_URL_FIX[title]
 	url = "%s/%s.rss" % (BASE_URL, title)
+	Log.Debug("Series URL:" + url)
 	return url
 
 
