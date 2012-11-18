@@ -2349,7 +2349,7 @@ def getEpisodeListFromFeed(feed, sort=True):
 		feedHtml = XML.ElementFromString(req.content)
 #		feedHtml = XML.ElementFromURL(feed)
 		items = feedHtml.xpath("//item")
-		seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
+		seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "").replace("Crunchyroll - ", "")
 		hasSeasons = True
 		@parallelize
 		def parseEpisodeItems():
