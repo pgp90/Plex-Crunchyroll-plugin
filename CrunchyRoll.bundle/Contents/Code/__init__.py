@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from constants import *
 import re
+import fanartScrapper #needed to prevent errors if the user ends up activating the fanart
 from datetime import datetime # more robust than Datetime
 
 HTTP.CacheTime = 3600
@@ -2480,7 +2481,7 @@ def getEpisodeArt(episode):
 			seriesId = int(sk)
 	if seriesId is not None:
 		artUrl = ""
-		if Dict['series'][str(seriesId)]['tvdbId'] is not None:
+		if Dict['series'][str(seriesId)]['tvdbId'] is not None and Prefs['fanart'] is True:
 			artUrl = fanartScrapper.getSeasonThumb(Dict['series'][str(seriesId)]['tvdbId'], episode['season'], rand=False)
 			#Log.Debug("arturl: %s"%artUrl)
 			if artUrl is not None:
