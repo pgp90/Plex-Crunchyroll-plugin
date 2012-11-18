@@ -1953,29 +1953,35 @@ def getQueueList():
 			episodeDescription = episodeDescription[0].text.strip('\n').strip()
 		else:
 			episodeDescription = ""
+		"""
+		make sure item has an ID and does not error out from an empty string.
+		Semms to be a very rare problem caused by some media renaming and reorganization.
+		"""
+		episodeMediaIDStr = item.xpath("@media_id")[0]
+		if not (episodeMediaIDStr is ""):
+			episodeMediaID = int(item.xpath("@media_id")[0])
 			
-		episodeMediaID = int(item.xpath("@media_id")[0])
-		
-		nextUpText = item.xpath(".//span[@class='series-data ellipsis']")[0].text
-		fixit = ""
-		for line in nextUpText.split('\n'):
-			fixit = fixit + line.strip('\n').strip() +'\n'
+			nextUpText = item.xpath(".//span[@class='series-data ellipsis']")[0].text
+			fixit = ""
+			for line in nextUpText.split('\n'):
+				fixit = fixit + line.strip('\n').strip() +'\n'
 
-		nextUpText = fixit
+			nextUpText = fixit
 
-		Log.Debug("##################################")
+			Log.Debug("##################################")
 				
-		queueItem = {
-			"title": title,
-			"seriesId": seriesId,
-			"epToPlay": epToPlay,
-			"episodeTitle": episodeTitle,
-			"episodeDescription": episodeDescription,
-			"nextUpText": nextUpText,
-			"mediaID": episodeMediaID,
-			"seriesStatus": None
-		}
-		queueList.append(queueItem)
+			queueItem = {
+				"title": title,
+				"seriesId": seriesId,
+				"epToPlay": epToPlay,
+				"episodeTitle": episodeTitle,
+				"episodeDescription": episodeDescription,
+				"nextUpText": nextUpText,
+				"mediaID": episodeMediaID,
+				"seriesStatus": None
+			}
+			queueList.append(queueItem)
+		
 	return queueList
 	
 def getEpisodeDict(mediaId):
