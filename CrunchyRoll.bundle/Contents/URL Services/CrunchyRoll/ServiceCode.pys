@@ -27,12 +27,12 @@ def NormalizeURL(url):
 
 def getXpathText(item, path):
 	try: ret = item.xpath(path, namespaces=PLUGIN_NAMESPACE)[0].text
-	except: pass
+	except: ret = ""
 	return ret
 
 def getXpathInt(item, path):
 	try: ret = int(item.xpath(path, namespaces=PLUGIN_NAMESPACE)[0].text)
-	except: pass
+	except: ret=0 # ah well
 	return ret
 
 def getEpisodeInfoFromPlayerXml(mediaId):
@@ -49,7 +49,8 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 
 
 def MetadataObjectForURL(url):
-	#Log.Debug("Dict.keys(): %s"%Dict.keys())
+	#Log.Debug("Dict.keys(): %s"%repr(Dict.keys()))
+	
 	Log.Debug("MetadataObjectForURL(%s)"%url)
 	seriesTitle = url.split("/")[3]
 	goalId = url.split("/")[4].split("?")[0].split("-")
@@ -90,11 +91,11 @@ def MetadataObjectForURL(url):
 			if season: obj.season = season
 			if episodeNum: obj.absolute_index = episodeNum
 			#if origAvail: obj.originally_available_at = origAvail
-			#if rating: obj.rating = rating 			#An integer attribute with a valuebetween 0 and 10 specifying the episode’s rating.
-			#if writers: obj.writers = writers 		#A list of strings specifying the episode’s writers.
-			#if directors: obj.directors = directors #A list of strings specifying the episode’s directors.
-			#if producers: obj.producers = producers #A list of strings specifying the episode’s producers.
-			#if art: obj.art = art 					#A string specifying an image resource to use as the episode’s background art.
+			#if rating: obj.rating = rating 			#An integer attribute with a valuebetween 0 and 10 specifying the episode's rating.
+			#if writers: obj.writers = writers 		#A list of strings specifying the episode's writers.
+			#if directors: obj.directors = directors #A list of strings specifying the episode's directors.
+			#if producers: obj.producers = producers #A list of strings specifying the episode's producers.
+			#if art: obj.art = art 					#A string specifying an image resource to use as the episode's background art.
 			return obj
 	return EpisodeObject(url=url)
 
@@ -107,7 +108,7 @@ def MediaObjectsForURL(url):
 	isSmall, availRes = getInfoPage(u)
 	#Log.Debug("isSmall: %s"%isSmall)
 	ret = []
-	isWide = IsWide(u.split("-")[len(u.split("-"))-1])
+	isWide = 0 # IsWide(u.split("-")[len(u.split("-"))-1])
 	Log.Debug("availRes: %s"%availRes)
 	for res in availRes:
 		vurl= getVideoUrl(u, res, isSmall, isWide)
@@ -116,42 +117,64 @@ def MediaObjectsForURL(url):
 			MediaObject(
 				parts = [PartObject(key=Callback(PlayVideo, url=vurl))],
 				protocol = Protocol.WebKit,
-				video_resolution = RES_LIST[res],
+				video_resolution = res, # most of this stuff is bumpkus because we need to be logged in for it to matter
 				audio_channels = 2
 			)
 		)
 	Log.Debug("ret: %s"%ret)
+	"""
+	# tuples and lists and objects and parts, oh my!
+	ret = [(MediaObject(
+				parts = [PartObject(key=Callback(PlayVideo, url=vurl))],
+				protocol = Protocol.WebKit,
+				video_resolution = res, # most of this stuff is bumpkus because we need to be logged in for it to matter
+				audio_channels = 2
+			)
+		)
+		]
+	"""
 	return ret
 
 
 def getVideoUrl(url, quality, isSmall, isWide):
-	qual = VIDEO_QUALITY[RES_NAMES[quality]]
 	small = ("1" if isSmall is True else "0")
 	wide = ("1" if isWide is True else "0")
-	return url+"?p%s=1&t=0&small=%s&wide=%s"%(qual,small,wide)
+	return url+"?p%s=1&t=0&small=%s&wide=%s"%(str(quality),small,wide)
 
 
 ####################################################################################################
 
-@indirect
-def PlayVideo(url):#, isSmall, isWide, res):
-	final_url = url#getVideoUrl(url, res, isSmall, isWide).decode('unicode_escape')
-	Log.Debug("final_url: %s"%final_url)
-	Redirect(WebVideoItem(final_url))
-	#Log.Debug("final: %s"%final_url)
-	#c = ObjectContainer()
-	#c.add(VideoClipObject(
-	#  key = URLService.LookupURLForMediaURL(final_url.decode('unicode_escape')),
-	#  items = [
-	#    MediaObject(
-	#      parts = [
-	#        PartObject(key = final_url)
-	#      ]
-	#    )
-	#  ]
-	#))
-	#c.http_cookies = HTTP.CookiesForURL(BASE_URL)
-	#return c
+#@indirect
+def PlayVideo(url):
+	# Because service code is separated from main plugin code in every way you can
+	# think of, right down to the directory it's in and even its file extension (LOL), 
+	# accomodating login state is a highly ridiculous proposition ATM. So let's just 
+	# display a direct stream at 360p, and screw the premium users who might want 
+	# to watch search results at a higher resolution.
+
+	req = HTTP.Request(url + "&skip_wall=1", immediate=True, cacheTime=10*60*60)
+	
+	match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+	if not match:
+		# bad news
+		Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+		#Log.Debug(req.content)
+		theUrl = url
+	else:
+		theUrl = match.group(2)	+ "&__qual=360" # best res is always 360 (otherwise will be hell)
+
+	# try a manual redirect since redirects crash entire PMS
+	import urllib2
+	req = urllib2.urlopen(theUrl)
+	theUrl = req.geturl() 
+	
+	Log.Debug("final_url: %s"%theUrl)
+
+	import urllib2
+	req = urllib2.urlopen(theUrl)
+	theUrl = req.geturl() 
+
+	return Redirect(WebVideoURL(theUrl))
 
 
 def IsWide(mediaId):
@@ -168,6 +191,9 @@ def IsWide(mediaId):
 
 
 def getInfoPage(url):
+	# kinda impossible without being able to authenticate from here
+	return [1, [360]]
+	
 	availRes = ['12']
 	req = HTTP.Request(url=url, immediate=True, cacheTime=3600)
 	html = HTML.ElementFromString(req.content)

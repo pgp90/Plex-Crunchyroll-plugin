@@ -1,0 +1,104 @@
+<?xml version="1.0"?>
+<!-- this is for the direct .swf file, which can offer better resolutions for
+premium members.
+
+Since I cannot modify the HTML content on the fly, there are no javascript possibilities.
+-->
+
+<site site="http://www.crunchyroll.com/swf/.*qual=360" 
+plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
+initialState="waiting" version="2.0"
+windowHeight="392" 
+windowWidth="648"> <!-- long width not important unless you want "advertisement" not to be cropped. We wish to have top& bottom flush -->
+	<crop x="4" y="0" width="640" height="-32"/>
+<!-- pausing works on this, but seeking is nasty. It pauses on seek for unknown reasons, so DON'T SEEK-->
+	<seekbar type="thumb">
+		<!-- 
+		The starting x position of the seekbar thumb is different if there is a "go to next episode" 
+		button wedged between the play button and the seekbar.
+		From the perspective of a static site config, which can only declare facts,
+		this variance might as well be a supernatural event. So let's not worry about it, and 
+		accomodate the most common situation, which has the extra button. 
+		-->
+		<start x="80" y="-21"/> <!-- x would be 48 if next episode button weren't there. -->
+		<end x="389" y="-21"/> <!-- y value is right above the orange line to avoid false positives with ad point diamonds -->
+		<played>
+			<color rgb="ffffff"/> <!-- f7931e is orange color underneath -->
+		</played>
+	</seekbar>
+
+	
+	<state name="playing">
+		<event>
+			<condition>
+				<command name="pause"/>
+			</condition>
+			<action>
+				<click x="20" y="-15"/>
+				<move x="50" y="50" />
+				<goto state="paused"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
+				<goto state="paused"/>
+			</action>
+		</event>
+	</state>
+	<state name="waiting">
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
+				<goto state="paused"/>
+			</action>
+		</event>	
+	</state>
+	<state name="paused">
+		<event>
+			<condition>
+				<command name="play"/>
+			</condition>
+			<action>
+				<click x="20" y="-15"/>
+				<move x="50" y="500" />
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="8" y="8" rgb="555555"/>
+			</condition>
+			<action>
+				<goto state="playing" />
+			</action>
+		</event>
+	</state>
+	
+</site>

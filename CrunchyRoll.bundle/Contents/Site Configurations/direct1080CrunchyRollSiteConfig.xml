@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<!-- this is for the direct .swf file, which can offer better resolutions for
+premium members
+-->
+
+<site site="http://www.crunchyroll.com/swf/.*qual=1080" 
+plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
+initialState="playing" version="2.0"
+windowHeight="1112" 
+windowWidth="1920">
+	<!-- crunchyroll sometimes shows black lines on left & right. Not much we can do about it; it's just not 1920x1080 -->
+	<crop x="0" y="0" width="0" height="-32"/>
+	<seekbar type="thumb">
+		<start x="81" y="-15"/> <!-- x would be 48 if next episode button weren't there. -->
+		<end x="1652" y="-15"/>
+		<played>
+			<color rgb="ffffff"/>
+		</played>
+	</seekbar>
+
+	<state name="playing">
+		<event>
+			<condition>
+				<command name="pause"/>
+			</condition>
+			<action>
+				<click x="20" y="-15"/>
+				<move x="50" y="50" />
+				<goto state="paused"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
+				<goto state="paused"/>
+			</action>
+		</event>
+	</state>
+	<state name="waiting">
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="22" y="-15" rgb="ffffff"/>
+			</condition>
+			<action>
+				<goto state="paused"/>
+			</action>
+		</event>	
+	</state>
+	<state name="paused">
+		<event>
+			<condition>
+				<command name="play"/>
+			</condition>
+			<action>
+				<click x="20" y="-15"/>
+				<move x="50" y="500" />
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<or>
+					<color x="22" y="-15" rgb="808080"/>
+					<color x="22" y="-15" rgb="333333"/>
+				</or>
+			</condition>
+			<action>
+				<goto state="playing"/>
+			</action>
+		</event>
+		<event>
+			<condition>
+				<color x="8" y="8" rgb="555555"/>
+			</condition>
+			<action>
+				<goto state="playing" />
+			</action>
+		</event>
+	</state>	
+	
+</site>

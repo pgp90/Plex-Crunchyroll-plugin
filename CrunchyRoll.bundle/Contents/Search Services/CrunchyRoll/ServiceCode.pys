@@ -1,0 +1,122 @@
+SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
+
+
+def Search(query):
+	episodeList = getEpisodeListFromFeed(SEARCH_URL+query.strip().replace(' ', '%20'), sort=False)
+	oc = ObjectContainer()
+	if episodeList:
+		for episode in episodeList:
+			e = EpisodeObject(
+				url = episode['link'],
+				title = episode['title'],
+				summary = episode['description'],
+				thumb = episode['thumb'],
+				show = episode['seriesTitle'],
+				absolute_index = episode['episodeNum']
+				)
+			oc.add(e)
+	
+	return oc
+
+# total copy & paste without the Dict{} from scrapper.py
+# since I don't think writing things twice is honorable.
+def getEpisodeListFromFeed(feed, sort=True):
+	try:
+		episodeList = []
+		PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
+
+		# timeout errors driving me nuts, so
+		req = HTTP.Request(feed, timeout=100)
+		feedHtml = XML.ElementFromString(req.content)
+#		feedHtml = XML.ElementFromURL(feed)
+		items = feedHtml.xpath("//item")
+		seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
+		hasSeasons = True
+		for item in items:
+			mediaId = int(item.xpath("./guid")[0].text.split("-")[1])
+
+			title = item.xpath("./title")[0].text
+			if title.startswith("%s - " % seriesTitle):
+				title = title.replace("%s - " % seriesTitle, "")
+			elif title.startswith("%s Season " % seriesTitle):
+				title = title.replace("%s Season " % seriesTitle, "")
+				title = title.split(" ", 1)[1].lstrip("- ")
+			link = item.xpath("./link")[0].text
+			description = item.xpath("./description")[0].text
+			if "/><br />" in description:
+				description = description.split("/><br />")[1]
+			try:
+				episodeNum = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
+			except:
+				episodeNum = None
+			try: publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
+			except: publisher = ""
+			thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).replace("_large","_medium")
+			try: keywords = item.xpath("./media:keywords", namespaces=PLUGIN_NAMESPACE)[0].text
+			except: keywords = ""
+			availableResolutions = [] # this isn't available with rss script (it is with boxee_feeds)
+			try:
+				season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
+			except:
+				season = None
+				hasSeasons = False
+			try:
+				rating = item.xpath("../rating")[0].text
+				Log.Debug(rating)
+				
+				# see http://www.classify.org/safesurf/
+				#SS~~000. Age Range
+				#1) All Ages
+				#2) Older Children
+				#3) Teens
+				#4) Older Teens
+				#5) Adult Supervision Recommended
+				#6) Adults
+				#7) Limited to Adults
+				#8) Adults Only
+				#9) Explicitly for Adults
+
+				# just pluck the age value from text that looks like:
+				# (PICS-1.1 &quot;http://www.classify.org/safesurf/&quot; l r (SS~~000 5))
+				ageLimit = re.sub(r'(.*\(SS~~\d{3}\s+)(\d)(\).*)', r'\2', rating)
+				Log.Debug(ageLimit)							
+				rating = int(ageLimit) # we don't care about the categories
+				
+			except (ValueError, IndexError, TypeError):
+				rating = None
+				
+			mediaType = item.xpath("./media:category", namespaces=PLUGIN_NAMESPACE)[0].get('label')
+
+			episode = {
+				"title": title,
+				"link": link,
+				"mediaId": mediaId,
+				"description": description,
+				"seriesTitle": seriesTitle,
+				"episodeNum": episodeNum,
+				"thumb": thumb,
+				"availableResolutions": availableResolutions,
+				"publisher": publisher,
+				"season": season,
+				"keywords": keywords,
+				"type": mediaType,
+				"rating": rating
+			}
+			episodeList.append(episode)
+			#Log.Debug("###########################EPISODE")
+			#Log.Debug(episode)
+		if sort:
+			return sorted(episodeList, key=lambda k: k['episodeNum'])
+		else:
+			return episodeList
+
+	except Exception, arg:
+		Log.Error("#####################We got ourselves a dagnabbit exception:")
+		Log.Error(repr(Exception) + repr(arg))
+		Log.Error("feed: %s" % feed)
+		#Log.Error("Content:")
+		#Log.Error(req.content)
+		# maybe just pass the exception up the chain here
+		# instead of returning None
+		return None
+

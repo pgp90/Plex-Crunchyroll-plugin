@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import re, time, unicodedata, hashlib, types
 
 # Define proxy for TVDB.

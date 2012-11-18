@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
-<site site="http://www.crunchyroll.com/.*/.*?p480=1.*&amp;small=0&amp;wide=0" 
-	plugin="http://static.lln.crunchyroll.com/flash/.*/StandardVideoPlayer.swf" 
+<site site="http://www.crunchyroll.com/.*/.*?p360=1.*&amp;small=1&amp;wide=1" 
+	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 	initialState="waiting_for_flash_to_load" 
 	version="1.0"
 	identifier="com.plexapp.plugins.CrunchyRoll">
-	<crop x="100" y="0" width="760" height="-32"/>
+	<crop x="15" y="0" width="584" height="-32"/>
 	<seekbar type="javascript">
 		<percentComplete equals="$.getPlayhead()/$.getDuration() * 100.0"/>
 		<bigStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>
@@ -216,10 +216,7 @@
 		</event>
 		<event>
 			<condition>
-				<and>
-					<condition name="bar_not_present"/>
-					<javascript script="($.getDuration()==$.getPlayhead() ? 1 : 0)" matches="0" />
-				</and>
+				<condition name="bar_not_present"/>
 			</condition>
 			<action>
 				<goto state="playing_ad"/>
@@ -228,7 +225,7 @@
 		<event>
 			<condition>
 				<and>
-					<color x="480" y="18" rgb="f7931e"/>
+					<color x="351" y="18" rgb="f7931e"/>
 					<color x="305" y="5" rgb="000000"/>
 				</and>
 			</condition>

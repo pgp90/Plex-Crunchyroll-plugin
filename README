@@ -1,5 +1,12 @@
-A plugin that allows a user to watch videos from CrunchyRoll.com using Plex.
+This is a fork of Jacob Palnick's original Crunchyroll.com plugin for Plex, which can be found at https://github.com/pgp90/Plex-Crunchyroll-plugin
 
+This fork intends to make improvements and bugfixes to Jacob's already awesome work, rendering it solid enough that both subscribers and freebie users can watch crunchyroll from any device :-).
+
+You need OSX and Plex Media Server 0.9.5.2 to use this plugin. PLEASE NOTE that Plex is now separated into client (the video watcher) and server (the delivery) You need at least the server, AND version 0.9.5.2. You can get 0.9.5.2 here: http://www.plexapp.com/download/mac-download-new.php
+
+To install, drop CrunchyRoll.bundle into  '/Users/YOURNAME/Library/Application Support/Plex Media Server/Plug-ins/'. Also, click "Disable capability checking" under Plex Media Server preferences->Advanced. Restart PMS. It should show up under Video Channels in a Plex client (or on your Media Link tv, or whatever...).
+
+Jacob says:
 This plugin is still being developed but can be used for the most part.
 
 Currently looking for help with the artwork (icons, background images). If you feel that you have a good image for 
