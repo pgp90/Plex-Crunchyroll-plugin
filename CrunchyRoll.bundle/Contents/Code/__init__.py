@@ -254,6 +254,9 @@ def Start():
 		cacheAllSeries()
 		listAllEpTitles()
 
+	
+	CountStatistics()
+	
 	if False: # doesn't work because cache won't accept a timeout value
 		for cacheThis in PRECACHE_URLS:
 			HTTP.PreCache(cacheThis, cacheTime=60*60*10)
@@ -312,6 +315,8 @@ def TopMenu():
 	if CHECK_PLAYER is True:
 		returnPlayer()
 	Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
+	
+	CountStatistics()
 
 	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
 	
@@ -2294,6 +2299,62 @@ def getEpisodeListForSeries(seriesId):
 			hasSeasons = False
 	#Log.Debug("seriesData: %s"%Dict['series'][str(seriesId)])
 	return formateEpList(epList,hasSeasons)
+
+def CountStatistics():
+	global avgt
+	global avgc
+	global epcount
+	t = Datetime.Now()
+	avgt = t - t
+	avgc = 0
+	t1 = Datetime.Now()
+	seriesList = []
+	for feed in ["genre_anime_all", "drama"]:
+		feedHtml = HTML.ElementFromURL(SERIES_FEED_BASE_URL+feed,cacheTime=SERIES_FEED_CACHE_TIME)
+		items = feedHtml.xpath("//item")
+		@parallelize
+		def parseSeriesItems():
+			for item in items:
+				seriesId = int(item.xpath("./guid")[0].text.split(".com/")[1])
+				@task
+				def parseSeriesItem(item=item,seriesId=seriesId):
+					if not (seriesId in seriesList):
+						seriesList.append(seriesId)
+	
+	t2 = Datetime.Now()
+	@parallelize
+	def cacheShowsEps():
+		Log.Debug(str(seriesList))
+		for sik in seriesList:
+			seriesId = sik
+			@task
+			def cacheShowEps(seriesId=seriesId):
+				global avgt
+				global avgc
+				ta = Datetime.Now()
+				try:
+					episodeList = []
+					PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
+					
+					req = HTTP.Request("http://www.crunchyroll.com/boxee_feeds/showseries/" + str(seriesId), timeout=100)
+					feedHtml = XML.ElementFromString(req.content)
+					items = feedHtml.xpath("//item")
+					epcount += len(items)
+				
+				except: pass
+				
+				tb = Datetime.Now()
+				avgt = avgt + (tb - ta)
+				avgc = avgc + 1
+			
+	
+	t3 = Datetime.Now()
+	tavg = avgt / avgc
+	Log.Debug("count series time: %s"%(t2-t1))
+	Log.Debug("count all ep time: %s"%(t3-t2))
+	Log.Debug("count ep avg time: %s"%(tavg))
+	Log.Debug("number of series: %s"%(len(seriesList)))
+	Log.Debug("number of episodes: %s"%(epcount))
 
 
 def CacheAll():
