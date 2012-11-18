@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
-<site site="http://www.crunchyroll.com/.*/.*?p360=1.*&amp;small=0&amp;wide=1" 
-	plugin="http://static.lln.crunchyroll.com/flash/.*/StandardVideoPlayer.swf" 
+<site site="http://www.crunchyroll.com/.*/.*?p720=1.*&amp;small=0&amp;wide=1" 
+	plugin="http://static..*.crunchyroll.com/flash/.*/StandardVideoPlayer.swf.*"
 	initialState="waiting_for_flash_to_load" 
 	version="1.0"
 	identifier="com.plexapp.plugins.CrunchyRoll">
-	<crop x="54" y="0" width="852" height="-32"/>
+	<crop x="2" y="0" width="956" height="-32"/>
 	<seekbar type="javascript">
 		<percentComplete equals="$.getPlayhead()/$.getDuration() * 100.0"/>
 		<bigStep minus="$.seek($.getPlayhead() - 10)" plus="$.seek($.getPlayhead() + 10)"/>

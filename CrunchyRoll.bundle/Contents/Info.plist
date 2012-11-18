@@ -45,6 +45,11 @@
 			<string>com.plexapp.plugins.CrunchyRoll</string>
 		</dict>
 	</dict>
+	<key>PlexSearchServices</key>
+        <dict>
+		<key>CrunchyRoll</key>
+		<string>com.plexapp.search.CrunchyRoll</string>
+	</dict>
 	<key>PlexPluginDevMode</key>
 	<string>1</string>
 </dict>

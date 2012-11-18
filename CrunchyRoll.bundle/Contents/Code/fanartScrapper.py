@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 FANART_API_URL = "http://fanart.tv/api/fanart.php?id=%s&sort=nameasc"
 
 SEASON_IMAGE_FIX_LIST = {
@@ -35,7 +36,7 @@ def getAllImagesForId(tvdbId):
 	if str(tvdbId) in Dict['fanart'] and Dict['fanart'][str(tvdbId)]['retrived']+Datetime.Delta(hours=24) >= Datetime.Now():
 		return Dict['fanart'][str(tvdbId)]['results']
 	else:
-		xml = XML.ElementFromURL(("http://fanart.tv/api/fanart.php?id=%s&sort=nameasc"%tvdbId), cacheTime=86400) #keep cahced for 24 hours
+		xml = XML.ElementFromURL("http://fanart.tv/api/fanart.php?id=%s&sort=nameasc"%tvdbId, cacheTime=86400) #keep cahced for 24 hours
 		results = {'clearlogos':[],'cleararts':[],'tvthumbs':[],'seasonthumbs':[]}
 		#debugFanartItem(xml.xpath("/fanart")[0])
 		for t in ['clearlogo','clearart','tvthumb','seasonthumb']:
