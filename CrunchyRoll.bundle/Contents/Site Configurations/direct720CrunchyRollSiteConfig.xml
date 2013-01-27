@@ -5,19 +5,124 @@ premium members
 
 <site site="http://www.crunchyroll.com/swf/.*qual=720" 
 plugin="http://www.crunchyroll.com/swf/vidplayer.swf.*"
-initialState="playing" version="2.0"
+initialState="wait-for-frame-load"
+version="2.0"
+identifier="com.plexapp.plugins.CrunchyRoll"
+manualLock="true"
 windowHeight="752" 
 windowWidth="1280">
+
 	<crop x="0" y="0" width="0" height="-32"/>
 <!-- pausing works on this, but seeking is nasty -->
-<seekbar type="thumb">
+	<seekbar type="thumb">
 		<start x="82" y="-15"/> <!-- x would be 48 if next episode button weren't there. -->
-		<end x="1020" y="-15"/>
+		<!-- <end x="1020" y="-15"/> -->
+		<end x="-260" y="-15"/>
 		<played>
 			<color rgb="ffffff"/>
 		</played>
 	</seekbar>
+	
+	<condition name="logged-in">
+		<and>
+            <javascript script="login = document.cookie.match(/premium/) == 'premium' ? 1 : 0" matches="1" />
+		</and>
+	</condition>
+	<condition name="login-success">
+		<and>
+            <javascript script="login = document.cookie.match(/premium/) == 'premium' ? 1 : 0" matches="1" />
+		</and>
+	</condition>
+<!-- 	<condition name="correct-window-size">
+		<and>
+			<javascript script="window.innerWidth" matches="1280" />
+			<javascript script="window.innerHeight" matches="752" />
+		</and>
+	</condition>
+ -->		
+	<state name="wait-for-frame-load">
+        <event>
+            <condition>
+                <frameLoaded />
+            </condition>
+            <action>
+				<goto state="check-for-auth" />
+            </action>
+        </event>
+    </state>
 
+	<state name="check-for-auth">
+        <event>
+            <condition>
+				<condition name="logged-in" />
+            </condition>
+            <action>
+				<lockPlugin/>
+    			<goto state="playing" />
+            </action>
+        </event> 
+		<event>
+            <condition>
+				<not>
+					<condition name="logged-in" />
+				</not>
+            </condition>
+            <action>
+                <visit url="https://www.crunchyroll.com/login" />
+                <pause time="1000" />			
+				<run script="document.getElementById('RpcApiUser_Login').name.value='${username}';" />
+				<run script="document.getElementById('RpcApiUser_Login').password.value='${password}';" />
+				<run script="document.getElementById('RpcApiUser_Login').next_url.value='${url}';" />
+				<run script="document.getElementById('RpcApiUser_Login').submit();" />
+				<pause time="4000" />
+				<goto state="check-for-auth-again" />
+            </action>
+        </event>		
+    </state>
+	
+	<state name="check-for-auth-again">
+		<event>
+            <condition>
+				<condition name="login-success" /> 
+            </condition>
+            <action>
+            	<!-- Until there is a way to fix the window size from inside the site config...we take advantage of cookies.... -->
+    			<goto state="end" param="Due to Plex incompatabilities, you need to try the video again." />
+<!--     			<goto state="checking-window-size" />
+ -->            </action>
+        </event> 
+		<event>
+            <condition>
+				<not>
+					<condition name="login-success" />
+				</not>
+            </condition>
+            <action>
+				<goto state="end" param="Please check your username and password in the plugin's settings" />
+            </action>
+        </event> 
+    </state>
+    
+<!--     <state name="checking-window-size">
+    	<event>
+    		<codition>
+    			<condition name="correct-window-size" />
+    		</codition>
+    		<action>
+    			<lockPlugin />
+    			<goto state="playing" />
+    		</action>
+    	</event>
+    	<event>
+    		<condition>
+    			<not><condition name="correct-window-size" /></not>
+    		</condition>
+    		<action>
+    			<goto state="end" param="Due to Plex incompatabilities, you need to try the video again." />
+    		</action>
+    	</event>
+    </state>
+ -->
 	<state name="playing">
 		<event>
 			<condition>
