@@ -1459,7 +1459,7 @@ def login(force=False):
 
 		if force: 
 			HTTP.ClearCookies()
-			killSafariCookies()
+#			killSafariCookies()
 			authInfo['loggedInSince'] = 0
 			authInfo['failedLoginCount'] = 0
 			#Dict['Authentication'] = authInfo
@@ -1478,7 +1478,7 @@ def login(force=False):
 		# if we reach here, we must manually log in.
 		if not force:
 			#save about 2 seconds
-			killSafariCookies()
+#			killSafariCookies()
 			HTTP.ClearCookies()
 
 		loginSuccess = loginViaApi(authInfo)
@@ -1488,7 +1488,7 @@ def login(force=False):
 			authInfo['loggedInSince'] = time.time()
 			authInfo['failedLoginCount'] = 0
 			#Dict['Authentication'] = authInfo
-			transferCookiesToSafari()
+#			transferCookiesToSafari()
 			return True
 		else:
 			Log.Error("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
@@ -1574,7 +1574,7 @@ def logout():
 	# safari, i checked). So whatever. at best, we can try to be secure and fail. Good
 	# faith, you know.
 	HTTP.ClearCookies()
-	killSafariCookies()
+#	killSafariCookies()
 	
 	#this turns every permission off:
 	resetAuthInfo()
@@ -1629,114 +1629,114 @@ def addToQueue(seriesId):
 	Log.Debug("add response: %s"%response)
 	return True
 
-def transferCookiesToSafari():
-	"""
-	Copy all crunchyroll cookies from Plex's cookie storage
-	into Safari's Plist
-	"""
-	import platform
-	if "darwin" in platform.system().lower():
-		
-		cookieString = HTTP.CookiesForURL(BASE_URL)
-		if not cookieString: return True
-	
-		try:
-			theCookies = BaseCookie(cookieString)
-			appendThis = []
-			tomorrow = datetime.now() + timedelta((1))
-			for k, v in theCookies.items():
-				#Plex doesn't supply these, so:
-				cookieDict = {'Domain':".crunchyroll.com", 
-					'Path':"/", 
-					'Expires': tomorrow, 
-					'Created': time.time(),
-					'Name': k,
-					'Value': v.value
-				}
-				appendThis.append(cookieDict)
-			#Log.Debug("#######Transferring these cookies:")
-			#Log.Debug(appendThis)
-			
-			filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-			theList = plistlib.readPlist(filename)
-			finalCookies = appendThis
-			
-			# brute force replace
-			for item in theList:
-				if not "crunchyroll.com" in item['Domain']:
-					finalCookies.append(item)
-	
-			plistlib.writePlist(finalCookies, filename)
-			return True
-		except Exception, arg:
-			Log.Error("#########transferCookiesToSafari() Exception occured:")
-			Log.Error(repr(Exception) + " " + repr(arg))
-			return False
-	else:
-		Log.Error("####Removing webkit cookies from a non-Darwin system is unsupported.")
-		return False
-
-def killSafariCookies():
-	"""
-	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
-	and save the result.
-	"""
-	import os
-	import plistlib
-	#Plex's sandboxing doesn't allow me to import platform,
-	# so let's not check for darwin and just fail.
-	try:
-		import platform
-		isDarwin = "darwin" in platform.system().lower()
-	except:
-		isDarwin = True # assume
-		
-	if isDarwin:
-		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-		try:
-			theList = plistlib.readPlist(filename)
-		except IOError:
-			#hm, okay, whatev, no file or gimpiness, let's bail
-			return
-			
-		theSavedList = []
-		for item in theList:
-			if not "crunchyroll.com" in item['Domain']:
-				theSavedList.append(item)
-			else:
-				#Log.Debug("######removing cookie:")
-				#Log.Debug(item)
-				pass
-		plistlib.writePlist(theSavedList, filename)
-	
-	
-def transferCookiesToPlex():
-	"""
-	grab all crunchyroll.com cookies from Safari
-	and transfer them to Plex. You shouldn't do this
-	because Plex needs to be the master to
-	keep the cookie situation <= fubar.
-	"""
-	# This function does nothing ATM
-	return
-	
-	import os.path, plistlib
-	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-	try:
-		theList = plistlib.readPlist(filename)
-	except IOError:
-		#hm, okay, whatev, no file or gimpiness, let's bail
-		return
-		
-	cookieList = []
-	for item in theList:
-		if "crunchyroll.com" in item['Domain']:
-			cookieList.append(item)
-	
-	s = SimpleCookie()
-	for cookie in cookieList:
-		#FIXME: should I bother?
-		pass
+#def transferCookiesToSafari():
+#	"""
+#	Copy all crunchyroll cookies from Plex's cookie storage
+#	into Safari's Plist
+#	"""
+#	import platform
+#	if "darwin" in platform.system().lower():
+#		
+#		cookieString = HTTP.CookiesForURL(BASE_URL)
+#		if not cookieString: return True
+#	
+#		try:
+#			theCookies = BaseCookie(cookieString)
+#			appendThis = []
+#			tomorrow = datetime.now() + timedelta((1))
+#			for k, v in theCookies.items():
+#				#Plex doesn't supply these, so:
+#				cookieDict = {'Domain':".crunchyroll.com", 
+#					'Path':"/", 
+#					'Expires': tomorrow, 
+#					'Created': time.time(),
+#					'Name': k,
+#					'Value': v.value
+#				}
+#				appendThis.append(cookieDict)
+#			#Log.Debug("#######Transferring these cookies:")
+#			#Log.Debug(appendThis)
+#			
+#			filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+#			theList = plistlib.readPlist(filename)
+#			finalCookies = appendThis
+#			
+#			# brute force replace
+#			for item in theList:
+#				if not "crunchyroll.com" in item['Domain']:
+#					finalCookies.append(item)
+#	
+#			plistlib.writePlist(finalCookies, filename)
+#			return True
+#		except Exception, arg:
+#			Log.Error("#########transferCookiesToSafari() Exception occured:")
+#			Log.Error(repr(Exception) + " " + repr(arg))
+#			return False
+#	else:
+#		Log.Error("####Removing webkit cookies from a non-Darwin system is unsupported.")
+#		return False
+#
+#def killSafariCookies():
+#	"""
+#	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
+#	and save the result.
+#	"""
+#	import os
+#	import plistlib
+#	#Plex's sandboxing doesn't allow me to import platform,
+#	# so let's not check for darwin and just fail.
+#	try:
+#		import platform
+#		isDarwin = "darwin" in platform.system().lower()
+#	except:
+#		isDarwin = True # assume
+#		
+#	if isDarwin:
+#		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+#		try:
+#			theList = plistlib.readPlist(filename)
+#		except IOError:
+#			#hm, okay, whatev, no file or gimpiness, let's bail
+#			return
+#			
+#		theSavedList = []
+#		for item in theList:
+#			if not "crunchyroll.com" in item['Domain']:
+#				theSavedList.append(item)
+#			else:
+#				#Log.Debug("######removing cookie:")
+#				#Log.Debug(item)
+#				pass
+#		plistlib.writePlist(theSavedList, filename)
+#	
+#	
+#def transferCookiesToPlex():
+#	"""
+#	grab all crunchyroll.com cookies from Safari
+#	and transfer them to Plex. You shouldn't do this
+#	because Plex needs to be the master to
+#	keep the cookie situation <= fubar.
+#	"""
+#	# This function does nothing ATM
+#	return
+#	
+#	import os.path, plistlib
+#	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
+#	try:
+#		theList = plistlib.readPlist(filename)
+#	except IOError:
+#		#hm, okay, whatev, no file or gimpiness, let's bail
+#		return
+#		
+#	cookieList = []
+#	for item in theList:
+#		if "crunchyroll.com" in item['Domain']:
+#			cookieList.append(item)
+#	
+#	s = SimpleCookie()
+#	for cookie in cookieList:
+#		#FIXME: should I bother?
+#		pass
 
 def deleteFlashJunk(folder=None):
 	"""
