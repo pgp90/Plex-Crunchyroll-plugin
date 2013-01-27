@@ -648,8 +648,8 @@ def DebugMenu(sender, advanced=True):
 	dir.Append(Function(DirectoryItem(LoginFromMenu, "Log in now", summary="This will force a clean login.")) )
 	if advanced:
 		dir.Append(Function(DirectoryItem(ClearCookiesItem, "Clear Cookies", summary="This will remove the cookies from Plex's internal cookie storage.")) )
-		dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
-		dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
+#		dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
+#		dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
 		dir.Append(Function(InputDirectoryItem(SetPreferredResolution, "Set Preferred Resolution", prompt=L("Type in resolution"), summary="This sets the preferred resolution server-side. Valid values are 360,480,720,and 1080")) )
 	
 	return dir
@@ -658,7 +658,7 @@ def DumpInfo(sender):
 
 	debugDict()
 	Log.Debug("###########CURRENT COOKIES")
-	Log.Debug(HTTP.GetCookiesForURL(BASE_URL))
+	Log.Debug(HTTP.CookiesForURL(BASE_URL))
 	Log.Debug("#############PREFERENCES:")
 	Log.Debug(Prefs)
 
@@ -697,7 +697,7 @@ def LogoutFromMenu(sender):
 	else:
 		dir = MessageContainer("Logout Failure", "Nice try, but logout failed.")
 		Log.Debug("####LOGOUT FAILED, HERE'S YOUR COOKIE")
-		Log.Debug(HTTP.GetCookiesForURL(BASE_URL) )
+		Log.Debug(HTTP.CookiesForURL(BASE_URL) )
 
 	return dir
 
@@ -719,6 +719,7 @@ def ClearCookiesItem(sender):
 	HTTP.ClearCookies()
 	return MessageContainer("Cookies Cleared", "For whatever it's worth, cookies are gone now.")
 
+"""
 def KillSafariCookiesItem(sender):
 	killSafariCookies()
 	return MessageContainer("Cookies Cleared", "All cookies from crunchyroll.com have been removed from Safari")
@@ -728,6 +729,7 @@ def TransferCookiesItem(sender):
 		return MessageContainer("Cookies Transferred.", "Done.")
 	else:
 		return MessageContainer("Transfer Failed.", "Nastiness occured, check the console.")
+"""
 
 def SetPreferredResolution(sender, query):
 	try:
@@ -1337,7 +1339,7 @@ def makeAPIRequest(valuesDict,referer=None):
 	h = API_HEADERS
 	if not referer is None:
 		h['Referer'] = referer
-	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
+	h['Cookie']=HTTP.CookiesForURL(BASE_URL)
 	req = HTTP.Request("https"+API_URL,values=valuesDict,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
 	return response
@@ -1350,7 +1352,7 @@ def makeAPIRequest2(data,referer=None):
 	h = API_HEADERS
 	if not referer is None:
 		h['Referer'] = referer
-	h['Cookie']=HTTP.GetCookiesForURL(BASE_URL)
+	h['Cookie']=HTTP.CookiesForURL(BASE_URL)
 	req = HTTP.Request("https"+API_URL,data=data,cacheTime=0,immediate=True, headers=h)
 	response = re.sub(r'\n\*/$', '', re.sub(r'^/\*-secure-\n', '', req.content))
 	return response
@@ -1359,7 +1361,7 @@ def loginViaWeb():
 	# backup plan in case cookies go bonkers, not used.
 	data = {'formname':'RpcApiUser_Login','fail_url':'http://www.crunchyroll.com/login','name':Prefs['username'],'password':Prefs['password']}
 	req = HTTP.Request(url='https://www.crunchyroll.com/?a=formhandler', values=data, immediate=True, cacheTime=10, headers={'Referer':'https://www.crunchyroll.com'})
-	HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
+	HTTP.Headers['Cookie'] = HTTP.CookiesForURL('https://www.crunchyroll.com/')
 
 def loginViaApi(authInfo):
 	loginSuccess = False
@@ -1376,7 +1378,7 @@ def loginViaApi(authInfo):
 			authInfo['AnimePremium'] = (response.get('data').get('premium').get(PREMIUM_TYPE_ANIME) == 1)
 			authInfo['DramaPremium']= (response.get('data').get('premium').get(PREMIUM_TYPE_DRAMA) == 1)
 			loginSuccess = True
-			HTTP.Headers['Cookie'] = HTTP.GetCookiesForURL('https://www.crunchyroll.com/')
+			HTTP.Headers['Cookie'] = HTTP.CookiesForURL('https://www.crunchyroll.com/')
 	except Exception, arg:
 		Log.Error("####Sorry, an error occured when logging in:")
 		Log.Error(repr(Exception) + " "  + repr(arg))
@@ -1635,7 +1637,7 @@ def transferCookiesToSafari():
 	import platform
 	if "darwin" in platform.system().lower():
 		
-		cookieString = HTTP.GetCookiesForURL(BASE_URL)
+		cookieString = HTTP.CookiesForURL(BASE_URL)
 		if not cookieString: return True
 	
 		try:
