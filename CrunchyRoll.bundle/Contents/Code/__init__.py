@@ -5,7 +5,7 @@ import fanartScrapper #needed to prevent errors if the user ends up activating t
 from datetime import datetime # more robust than Datetime
 
 HTTP.CacheTime = 3600
-HTTP.Headers["User-agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
+HTTP.Headers["User-Agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
 HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
 
 	
