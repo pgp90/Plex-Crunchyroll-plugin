@@ -648,8 +648,8 @@ def DebugMenu(sender, advanced=True):
 	dir.Append(Function(DirectoryItem(LoginFromMenu, "Log in now", summary="This will force a clean login.")) )
 	if advanced:
 		dir.Append(Function(DirectoryItem(ClearCookiesItem, "Clear Cookies", summary="This will remove the cookies from Plex's internal cookie storage.")) )
-#		dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
-#		dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
+		dir.Append(Function(DirectoryItem(KillSafariCookiesItem, "Kill Safari Cookies", summary="This will remove all crunchyroll.com cookies from Safari's cookie file. Useful if login status is not synced.")) )
+		dir.Append(Function(DirectoryItem(TransferCookiesItem, "Transfer cookies to Safari", summary="This transfers Plex's crunchyroll cookies into safari's plist.")) )
 		dir.Append(Function(InputDirectoryItem(SetPreferredResolution, "Set Preferred Resolution", prompt=L("Type in resolution"), summary="This sets the preferred resolution server-side. Valid values are 360,480,720,and 1080")) )
 	
 	return dir
@@ -719,7 +719,6 @@ def ClearCookiesItem(sender):
 	HTTP.ClearCookies()
 	return MessageContainer("Cookies Cleared", "For whatever it's worth, cookies are gone now.")
 
-"""
 def KillSafariCookiesItem(sender):
 	killSafariCookies()
 	return MessageContainer("Cookies Cleared", "All cookies from crunchyroll.com have been removed from Safari")
@@ -729,7 +728,6 @@ def TransferCookiesItem(sender):
 		return MessageContainer("Cookies Transferred.", "Done.")
 	else:
 		return MessageContainer("Transfer Failed.", "Nastiness occured, check the console.")
-"""
 
 def SetPreferredResolution(sender, query):
 	try:
