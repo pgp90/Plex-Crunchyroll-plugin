@@ -254,7 +254,8 @@ def Start():
 		cacheAllSeries()
 		listAllEpTitles()
 	
-	CountStatistics()
+#	CacheAll()
+#	CountStatistics()
 	
 	if False: # doesn't work because cache won't accept a timeout value
 		for cacheThis in PRECACHE_URLS:
@@ -1803,7 +1804,8 @@ schema inside Dict{}
 		"thumb": thumb,
 		"art": art,
 		'epsRetrived': None,
-		'epList': None
+		'epList': None,
+		'rating': None
 		}
 	}
 	
@@ -2054,6 +2056,7 @@ def getSortTitle(dictList):
 
 def cacheAllSeries():
 	#startTime = Datetime.Now()
+	Log.Debug("CacheAllSeries()")
 	seriesDict = Dict['series']
 	for feed in ["genre_anime_all", "drama"]:
 		feedHtml = HTML.ElementFromURL(SERIES_FEED_BASE_URL+feed,cacheTime=SERIES_FEED_CACHE_TIME)
@@ -2084,6 +2087,8 @@ def cacheAllSeries():
 						#else:
 						thumb = str(item.xpath("./property")[0].text).replace("_large",THUMB_QUALITY[Prefs['thumb_quality']])
 						art = thumb
+						
+#						epList = 
 						dictInfo = {
 							"title": title,
 							"seriesId": seriesId,
@@ -2092,7 +2097,8 @@ def cacheAllSeries():
 							"thumb": thumb,
 							"art": art,
 							'epsRetrived': None,
-							'epList': None
+							'epList': None,
+							'rating': 0
 						}
 						seriesDict[str(seriesId)] = dictInfo
 					else:
@@ -2112,6 +2118,9 @@ def cacheAllSeries():
 				
 		
 		Dict['series'] = seriesDict
+		for series in Dict['series']:
+			epList = getEpisodeListForSeries(series['seriesId'])
+			Dict['series'][str(series['seriesId'])]['rating'] = epList[0]['rating'] 
 		#endTime = Datetime.Now()
 		#Log.Debug("start time: %s"%startTime)
 		#Log.Debug("end time: %s"%endTime)
@@ -2305,6 +2314,8 @@ def CountStatistics():
 	global avgt
 	global avgc
 	global epcount
+#	global maxRating
+#	maxRating = 0
 	t = Datetime.Now()
 	avgt = t - t
 	avgc = 0
@@ -2356,18 +2367,23 @@ def CountStatistics():
 	Log.Debug("count ep avg time: %s"%(tavg))
 	Log.Debug("number of series: %s"%(len(seriesList)))
 	Log.Debug("number of episodes: %s"%(epcount))
+#	Log.Debug("max rating: %s"%(maxRating))
+	
 
 
 def CacheAll():
 	global avgt
 	global avgc
-	tvdbscrapper.setuptime()
-	t = Datetime.Now()
-	avgt = t - t
-	avgc = 0
-	t1 = Datetime.Now()
+	global maxRating
+	maxRating = 0
+	Log.Debug("running CacheAll()")
+#	tvdbscrapper.setuptime()
+#	t = Datetime.Now()
+#	avgt = t - t
+#	avgc = 0
+#	t1 = Datetime.Now()
 	cacheAllSeries()
-	t2 = Datetime.Now()
+#	t2 = Datetime.Now()
 	@parallelize
 	def cacheShowsEps():
 		Log.Debug(str(Dict['series'].keys()))
@@ -2377,7 +2393,8 @@ def CacheAll():
 			def cacheShowEps(seriesId=seriesId):
 				global avgt
 				global avgc
-				ta = Datetime.Now()
+				global maxRating
+#				ta = Datetime.Now()
 				seriesData = Dict['series'][str(seriesId)]
 				if seriesData['epsRetrived'] is None or seriesData['epsRetrived']+Datetime.Delta(minutes=60) <= Datetime.Now():
 					epList = getEpisodeListFromFeed(seriesTitleToUrl(seriesData['title']))
@@ -2385,20 +2402,23 @@ def CacheAll():
 					epIdList = []
 					for ep in epList:
 						epIdList.append(ep['mediaId'])
+						if ep['rating'] > maxRating:
+							maxRating = ep['rating']
 					seriesData['epList'] = epIdList
 					Dict['series'][str(seriesId)] = seriesData
-					tb = Datetime.Now()
-					avgt = avgt + (tb - ta)
-					avgc = avgc + 1
+#					tb = Datetime.Now()
+#					avgt = avgt + (tb - ta)
+#					avgc = avgc + 1
 			
 	
-	t3 = Datetime.Now()
-	tavg = avgt / avgc
-	idavg = tvdbscrapper.getavg()
-	Log.Debug("cache series time: %s"%(t2-t1))
-	Log.Debug("cache all ep time: %s"%(t3-t2))
-	Log.Debug("cache ep avg time: %s"%(tavg))
-	Log.Debug("cache id avg time: %s"%(idavg))
+#	t3 = Datetime.Now()
+#	tavg = avgt / avgc
+#	idavg = tvdbscrapper.getavg()
+#	Log.Debug("cache series time: %s"%(t2-t1))
+#	Log.Debug("cache all ep time: %s"%(t3-t2))
+#	Log.Debug("cache ep avg time: %s"%(tavg))
+#	Log.Debug("cache id avg time: %s"%(idavg))
+	Log.Debug("max rating: %s"%(maxRating))
 	
 
 
@@ -2469,7 +2489,7 @@ def getEpisodeListFromFeed(feed, sort=True):
 							
 						try:
 							rating = item.xpath("../rating")[0].text
-							Log.Debug(rating)
+#							Log.Debug(rating)
 							
 							# see http://www.classify.org/safesurf/
 							#SS~~000. Age Range
