@@ -56,6 +56,7 @@ schema inside Dict{}
         "season": season,
         "seasonId": seasonId,
         "mediaLink": mediaLink,
+        "seriesTitle": seriesTitle,
         "availableResolutions": availableResolutions
         }
     }
@@ -255,8 +256,15 @@ def CacheEpisodeListForSeason(seasonId):
         feedEntryModified = datetime.datetime.strptime(item.xpath("./crunchyroll:modifiedDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
         
         if not str(mediaId) in Dict['episodes'] or Dict['episodes'][str(mediaId)]["dateUpdated"] <= feedEntryModified:
-            episodeTitle = item.xpath("./title")[0].text
-            
+            #TODO: should use <title> or <crunchyroll:episodeTitle> for the title?
+            try: episodeTitle = item.xpath("./crunchyroll:episodeTitle", namespaces=PLUGIN_NAMESPACE)[0].text
+            except: episodeTitle = item.xpath("./title")[0].text
+            if episodeTitle.startswith("%s - " % seriesTitle):
+                episodeTitle = episodeTitle.replace("%s - " % seriesTitle, "")
+            elif episodeTitle.startswith("%s Season " % seriesTitle):
+                episodeTitle = episodeTitle.replace("%s Season " % seriesTitle, "")
+                episodeTitle = episodeTitle.split(" ", 1)[1].lstrip("- ")
+
             episodeDescription = item.xpath("./description")[0].text
             if "/><br />" in episodeDescription:
                 episodeDescription = episodeDescription.split("/><br />")[1]
@@ -267,17 +275,17 @@ def CacheEpisodeListForSeason(seasonId):
             premiumPubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
             premiumPubDateEnd = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
             publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
-            duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text)
+            duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
             subtitleLanguages = item.xpath("./crunchyroll:subtitleLanguages", namespaces=PLUGIN_NAMESPACE)[0].text.split(",")
             simpleRating = item.xpath("./media:rating", namespaces=PLUGIN_NAMESPACE)[0].text
             countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.TrimWhitespace().split(" ")
             season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
-            mediaLink = item.xpath("./link")[0].text.TrimWhitespace()
+            mediaLink = item.xpath("EPISODE_MEDIA_LINK_XPATH")[0].text.TrimWhitespace()
             category = item.xpath("./category")[0].text
             thumb = str(item.xpath("./enclosure")[0].get('url')).split("_")[0]+"_full.jpg"
             art = thumb
             
-            #FIXME
+            #FIXME: figure out how to deal with vidoe resolutions
             availableResolutions = None
             
             episode = {
@@ -302,6 +310,7 @@ def CacheEpisodeListForSeason(seasonId):
                 "category": category,
                 "thumb": thumb,
                 "art": art,
+                "seriesTitle": seriesTitle,
                 "availableResolutions": availableResolutions
             }
             
@@ -381,6 +390,163 @@ def CacheEpisodeListForSeason(seasonId):
 #        
 #    return sortedSeriesList
 
+def getEpisodeListFromFeed(feed, sort=True):
+    import datetime
+    try:
+        episodeList = []
+        PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
+        updateDate = datetime.now()
+        
+        # timeout errors driving me nuts, so
+        req = HTTP.Request(feed, timeout=100)
+        feedHtml = XML.ElementFromString(req.content)
+#        feedHtml = XML.ElementFromURL(feed)
+        items = feedHtml.xpath("//item")
+#        seriesTitle = feedHtml.xpath("//channel/title")[0].text.replace(" Episodes", "")
+        hasSeasons = True
+        @parallelize
+        def parseEpisodeItems():
+            for item in items:
+                mediaId = int(item.xpath("./guid")[0].text.split("-")[-1])
+                feedEntryModified = datetime.datetime.strptime(item.xpath("./crunchyroll:modifiedDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                @task
+                def parseEpisodeItem(item=item,mediaId=mediaId,feedEntryModified=feedEntryModified):
+                    if not str(mediaId) in Dict['episodes'] or Dict['episodes'][str(mediaId)]["dateUpdated"] <= feedEntryModified:
+                        seriesTitle = item.xpath("./crunchyroll:seriesTitle", namespaces=PLUGIN_NAMESPACE)[0].text
+                        #TODO: should use <title> or <crunchyroll:episodeTitle> for the title?
+                        title = item.xpath("./crunchyroll:episodeTitle", namespaces=PLUGIN_NAMESPACE)[0].text
+#                        if title.startswith("%s - " % seriesTitle):
+#                            title = title.replace("%s - " % seriesTitle, "")
+#                        elif title.startswith("%s Season " % seriesTitle):
+#                            title = title.replace("%s Season " % seriesTitle, "")
+#                            title = title.split(" ", 1)[1].lstrip("- ")
+                        
+                        episodeDescription = item.xpath("./description")[0].text
+                        if "/><br />" in episodeDescription:
+                            episodeDescription = episodeDescription.split("/><br />")[1]
+                        
+                        try:
+                            episodeNumber = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
+                        except:
+                            episodeNumber = None
+                        
+                        freePubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        freePubDateEnd = datetime.datetime.strptime(item.xpath("./crunchyroll:freeEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        premiumPubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        premiumPubDateEnd = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        try: publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
+                        except: publisher = ""
+                        duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
+                        subtitleLanguages = item.xpath("./crunchyroll:subtitleLanguages", namespaces=PLUGIN_NAMESPACE)[0].text.split(",")
+                        simpleRating = item.xpath("./media:rating", namespaces=PLUGIN_NAMESPACE)[0].text
+                        countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.TrimWhitespace().split(" ")
+                        try: season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
+                        except: season = None
+                        mediaLink = item.xpath(EPISODE_MEDIA_LINK_XPATH)[0].text.TrimWhitespace()
+                        category = item.xpath("./category")[0].text
+                        try: thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).split("_")[0]+THUMB_QUALITY[Prefs['thumb_quality']]+".jpg"
+                        except IndexError:
+                            if "http://static.ak.crunchyroll.com/i/coming_soon_new_thumb.jpg" in description:
+                                thumb = "http://static.ak.crunchyroll.com/i/coming_soon_new_thumb.jpg"
+                            else:
+                                thumb = "" # FIXME happens on newbie content, could be a bad idea b/c of cache.
+                        art = thumb
+                        
+                        try:
+                            rating = item.xpath("../rating")[0].text
+                            Log.Debug(rating)
+                            
+                            # see http://www.classify.org/safesurf/
+                            #SS~~000. Age Range
+                            #1) All Ages
+                            #2) Older Children
+                            #3) Teens
+                            #4) Older Teens
+                            #5) Adult Supervision Recommended
+                            #6) Adults
+                            #7) Limited to Adults
+                            #8) Adults Only
+                            #9) Explicitly for Adults
+
+                            # just pluck the age value from text that looks like:
+                            # (PICS-1.1 &quot;http://www.classify.org/safesurf/&quot; l r (SS~~000 5))
+                            ageLimit = re.sub(r'(.*\(SS~~\d{3}\s+)(\d)(\).*)', r'\2', rating)
+                            rating = int(ageLimit) # we don't care about the categories
+                            
+                        except (ValueError, IndexError, TypeError):
+                            rating = None
+
+                        if Dict['episodes'][str(mediaId)]["dateUpdated"] <= feedEntryModified:
+                            seasonId = Dict['episodes'][str(mediaId)]["seasonId"]
+                        #FIXME: figure out how to deal with getting resolutions.
+                        availableResolutions = None
+                        
+                        episode = {
+                            "title": title,
+                            "description": episodeDescription,
+                            "mediaId": mediaId,
+                            "episodeNumber": episodeNumber,
+                            "freePubDate": freePubDate,
+                            "freePubDateEnd": freePubDateEnd,
+                            "premiumPubDate": premiumPubDate,
+                            "premiumPubDateEnd": premiumPubDateEnd,
+                            "publisher": publisher,
+                            "duration": duration,
+                            "subtitleLanguages": subtitleLanguages,
+                            "rating": rating,
+                            "simpleRating": simpleRating,
+                            "countries": countries,
+                            "dateUpdated": dateUpdated,
+                            "season": season,
+                            "seasonId": seasonId,
+                            "mediaLink": mediaLink,
+                            "category": category,
+                            "thumb": thumb,
+                            "art": art,
+                            "seriesTitle": seriesTitle,
+                            "availableResolutions": availableResolutions
+                        }
+                        
+                        Dict['episodes'][str(mediaId)] = episode
+                    else:
+                        episode = Dict['episodes'][str(mediaId)]
+                    episodeList.append(episode)
+        if sort:
+            return sorted(episodeList, key=lambda k: k['episodeNum'])
+        else:
+            return episodeList
+
+    except Exception, arg:
+        Log.Error("#####We got ourselves a dagnabbit exception:")
+        Log.Error(repr(Exception) + repr(arg))
+        Log.Error("feed: %s" % feed)
+        #Log.Error("Content:")
+        #Log.Error(req.content) # too verbose, uncomment if needed
+        # maybe just pass the exception up the chain here
+        # instead of returning None
+        return None
+
+def getSeriesListFromFeed(feed, sort=True, sortBy="title"):
+    #TODO: implement a check to eliminate need for call if series were cached recently
+    CacheFullSeriesList()
+    
+    feedHtml = HTML.ElementFromURL(feed,cacheTime=SERIES_FEED_CACHE_TIME)
+    seriesList = []
+    items = feedHtml.xpath("//item")
+    for item in items:
+        seriesGUID = item.xpath("./guid")[0].text.replace("http://www.crunchyroll.com/", "")
+        if not seriesGUID in Dict['series']:
+            #TODO: figure out what to do if the series can't be found in Dict['series']
+            Log.Debug("Could not find series with seriesGUID %s in Dict['series'].")
+        else:
+            seriesList.append(Dict['series'])
+        
+    if sort:
+        return sorted(episodeList, key=lambda k: k[sortBy])
+    else:
+        return seriesList
+
+
 
 
 def getPopularAnimeEpisodes():
@@ -407,14 +573,15 @@ def getRecentDramaEpisodes():
     "return a list of recently added drama videos"
     return getEpisodeListFromFeed(RECENT_DRAMA_FEED, sort=False)
 
+
 def getEpisodeListFromQuery(queryString):
     "return a list of relevant episode dicts matching queryString"
     return getEpisodeListFromFeed(SEARCH_URL+queryString.strip().replace(' ', '%20'), sort=False)
 
-# series feeds use boxee_feeds url, so the parsing is quite different
+
 def getAnimeSeriesList():
     "return a list of all available series in anime"
-    return getSeriesListFromFeed(SERIES_FEED_URL + "genre_anime_all", sort=True, cat="anime")
+    return getSeriesListFromFeed(SERIES_FEED_BASE_URL + "genre_anime_all", sort=True)
 
 def getDramaSeriesList():
     "return a list of all available series in Drama"
@@ -447,7 +614,7 @@ def getDramaSeriesByGenre(genre):
     feed = SERIES_FEED_BASE_URL + "genre_drama_" + queryStr
     return getSeriesListFromFeed(feed)
 
-def getSeriesByGenre(genre):
+def getAllSeriesByGenre(genre):
     list = []
     drama, anime = [],[]
     try:
@@ -462,10 +629,10 @@ def getSeriesByGenre(genre):
     # FIXME: if there's overlap, we'll have dupes...    
     return anime + drama
 
+
 def getQueueList():
     login()
-    queueURL = BASE_URL+"/queue"
-    queueHtml = HTML.ElementFromURL(queueURL,cacheTime=QUEUE_LIST_CACHE_TIME)
+    queueHtml = HTML.ElementFromURL(QUEUE_URL,cacheTime=QUEUE_LIST_CACHE_TIME)
     queueList = []
     items = queueHtml.xpath("//div[@id='main_content']/ul[@id='sortable']/li[@class='queue-item']")
     for item in items:

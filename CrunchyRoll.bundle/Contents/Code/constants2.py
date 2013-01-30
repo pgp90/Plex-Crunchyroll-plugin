@@ -8,18 +8,19 @@ API_URL                      = "://www.crunchyroll.com/ajax/"
 # boxee search requires extra code, rss search returns less results,
 # boxee feed has duration info.
 # potatoh, potatah
+QUEUE_URL					 = "http://www.crunchyroll.com/queue"
 SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
 #SEARCH_URL                  = "http://www.crunchyroll.com/boxee_feeds/search?q="
 SERIES_FEED_BASE_URL         = "http://www.crunchyroll.com/boxee_feeds/"
 SERIES_FEED_URL				 = "http://www.crunchyroll.com/syndication/feed?type=series"
 SEASON_FEED_BASE_URL		 = "http://www.crunchyroll.com/syndication/feed?type=episodes&id="
-POPULAR_DRAMA_FEED           = "http://feeds.feedburner.com/crunchyroll/rss/drama/popular"
-POPULAR_ANIME_FEED           = "http://feeds.feedburner.com/crunchyroll/rss/anime/popular"
-POPULAR_FEED                 = "http://feeds.feedburner.com/crunchyroll/rss/popular"
+POPULAR_DRAMA_FEED           = "http://www.crunchyroll.com/rss/drama/popular"
+POPULAR_ANIME_FEED           = "http://www.crunchyroll.com/rss/anime/popular"
+POPULAR_FEED                 = "http://www.crunchyroll.com/rss/popular"
 
-RECENT_ANIME_FEED            = "http://feeds.feedburner.com/crunchyroll/rss/anime"
-RECENT_DRAMA_FEED            = "http://feeds.feedburner.com/crunchyroll/rss/drama"
-RECENT_VIDEOS_FEED           = "http://feeds.feedburner.com/crunchyroll/rss"
+RECENT_ANIME_FEED            = "http://www.crunchyroll.com/crunchyroll/rss/anime"
+RECENT_DRAMA_FEED            = "http://www.crunchyroll.com/crunchyroll/rss/drama"
+RECENT_VIDEOS_FEED           = "http://www.crunchyroll.com/crunchyroll/rss"
 
 CRUNCHYROLL_PLUGIN_PREFIX    = "/video/CrunchyRoll"
 CRUNCHYROLL_ART              = 'art-default3.jpg'
@@ -39,12 +40,16 @@ VIDEO_QUALITY                = {"SD":"360","480P":"480","720P":"720", "1080P":"1
 
 FEED_DATE_FORMAT			 = "%a, %d %b %Y %H:%M:%S %Z"
 EPISODE_UPDATE_TIME			 = 60*60*24 #1 day
+SERIES_FEED_CACHE_TIME 		 = 3600 # 1 hour
+QUEUE_LIST_CACHE_TIME 		 = 15 # 15 seconds
 
 LAST_PLAYER_VERSION = "20111130163346.fb103f9787f179cd0f27be64da5c23f2"
 PREMIUM_TYPE_ANIME = '2'
 PREMIUM_TYPE_DRAMA = '4'
 ANIME_TYPE = "Anime"
 DRAMA_TYPE = "Drama"
+
+EPISODE_MEDIA_LINK_XPATH = "./link" #second choice is "./guid>"
 
 # these are lengthy fetches which may cause timeouts, so try to precache, Which (of course)
 # doesn't allow setting a timeout value. Blech.
