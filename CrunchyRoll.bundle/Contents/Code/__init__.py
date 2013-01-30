@@ -313,11 +313,12 @@ def TopMenu():
 		returnPlayer()
 	Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
 
-	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll")
+	dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll", noCache=True)
 	
 	# show queue menu even if not logged in, since the cache will keep it hidden
 	# if user logs in later. Not ideal, but whatev. CR.com gets some advertising.
-	dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
+	if isRegistered():
+		dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
 		
 	dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="Recent Additions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))
 	dir.Append(Function(DirectoryItem(PopularVideosMenu,"Popular Videos", title1="Popular Videos", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))	
@@ -1317,7 +1318,7 @@ import time, os, re
 from Cookie import BaseCookie
 import plistlib
 from datetime import datetime, timedelta
-import scrapper
+#import scrapper
 
 PREMIUM_TYPE_ANIME = '2'
 PREMIUM_TYPE_DRAMA = '4'
@@ -1629,114 +1630,6 @@ def addToQueue(seriesId):
 	Log.Debug("add response: %s"%response)
 	return True
 
-#def transferCookiesToSafari():
-#	"""
-#	Copy all crunchyroll cookies from Plex's cookie storage
-#	into Safari's Plist
-#	"""
-#	import platform
-#	if "darwin" in platform.system().lower():
-#		
-#		cookieString = HTTP.CookiesForURL(BASE_URL)
-#		if not cookieString: return True
-#	
-#		try:
-#			theCookies = BaseCookie(cookieString)
-#			appendThis = []
-#			tomorrow = datetime.now() + timedelta((1))
-#			for k, v in theCookies.items():
-#				#Plex doesn't supply these, so:
-#				cookieDict = {'Domain':".crunchyroll.com", 
-#					'Path':"/", 
-#					'Expires': tomorrow, 
-#					'Created': time.time(),
-#					'Name': k,
-#					'Value': v.value
-#				}
-#				appendThis.append(cookieDict)
-#			#Log.Debug("#######Transferring these cookies:")
-#			#Log.Debug(appendThis)
-#			
-#			filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-#			theList = plistlib.readPlist(filename)
-#			finalCookies = appendThis
-#			
-#			# brute force replace
-#			for item in theList:
-#				if not "crunchyroll.com" in item['Domain']:
-#					finalCookies.append(item)
-#	
-#			plistlib.writePlist(finalCookies, filename)
-#			return True
-#		except Exception, arg:
-#			Log.Error("#########transferCookiesToSafari() Exception occured:")
-#			Log.Error(repr(Exception) + " " + repr(arg))
-#			return False
-#	else:
-#		Log.Error("####Removing webkit cookies from a non-Darwin system is unsupported.")
-#		return False
-#
-#def killSafariCookies():
-#	"""
-#	remove all cookies from ~/Library/Cookies/Cookies.plist matching the domain of .*crunchyroll.com
-#	and save the result.
-#	"""
-#	import os
-#	import plistlib
-#	#Plex's sandboxing doesn't allow me to import platform,
-#	# so let's not check for darwin and just fail.
-#	try:
-#		import platform
-#		isDarwin = "darwin" in platform.system().lower()
-#	except:
-#		isDarwin = True # assume
-#		
-#	if isDarwin:
-#		filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-#		try:
-#			theList = plistlib.readPlist(filename)
-#		except IOError:
-#			#hm, okay, whatev, no file or gimpiness, let's bail
-#			return
-#			
-#		theSavedList = []
-#		for item in theList:
-#			if not "crunchyroll.com" in item['Domain']:
-#				theSavedList.append(item)
-#			else:
-#				#Log.Debug("######removing cookie:")
-#				#Log.Debug(item)
-#				pass
-#		plistlib.writePlist(theSavedList, filename)
-#	
-#	
-#def transferCookiesToPlex():
-#	"""
-#	grab all crunchyroll.com cookies from Safari
-#	and transfer them to Plex. You shouldn't do this
-#	because Plex needs to be the master to
-#	keep the cookie situation <= fubar.
-#	"""
-#	# This function does nothing ATM
-#	return
-#	
-#	import os.path, plistlib
-#	filename = os.path.expanduser("~/Library/Cookies/Cookies.plist")
-#	try:
-#		theList = plistlib.readPlist(filename)
-#	except IOError:
-#		#hm, okay, whatev, no file or gimpiness, let's bail
-#		return
-#		
-#	cookieList = []
-#	for item in theList:
-#		if "crunchyroll.com" in item['Domain']:
-#			cookieList.append(item)
-#	
-#	s = SimpleCookie()
-#	for cookie in cookieList:
-#		#FIXME: should I bother?
-#		pass
 
 def deleteFlashJunk(folder=None):
 	"""
@@ -1958,7 +1851,7 @@ def getQueueList():
 			episodeDescription = ""
 		"""
 		make sure item has an ID and does not error out from an empty string.
-		Semms to be a very rare problem caused by some media renaming and reorganization.
+		Seems to be a very rare problem caused by some media renaming and reorganization.
 		"""
 		episodeMediaIDStr = item.xpath("@media_id")[0]
 		if not (episodeMediaIDStr == ""):
@@ -2030,6 +1923,47 @@ def recoverEpisodeDict(mediaId):
 	# alternatively, use http://www.crunchyroll.com/series-name/episodes
 	# which gives full episodes, but, well, is HTML and has less media info
 	return None
+""" boxee
+<item>
+<title>Episode 1</title>
+<guid isPermaLink="true">http://www.crunchyroll.com/bleach/episode-1-543611</guid>
+<description>
+Meet Ichigo Kurosaki, age 15. He's a high-school student who possesses the uncanny ability to see ghosts. But when he meets Rukia Kuchiki, a Soul Reaper from the Soul Society who helps lost souls find peace, his not-so-normal life becomes even more abnormal. In order to save his family from the grips of a Hollow, an evil spirit that preys on humans, Rukia lends some of her powers to Ichigo. Much to her surprise, he absorbs most of her powers and in turn, he too becomes a Soul Reaper.
+</description>
+<pubDate>Tue, 29 Jan 2013 15:13:06</pubDate>
+<link>
+flash://crunchyroll.com/src=http%3A%2F%2Fwww.crunchyroll.com%2Fboxee_showmedia%2F543611&bx-ourl=http%3A%2F%2Fwww.crunchyroll.com%2Fbleach%2Fepisode-1-543611
+</link>
+<media:thumbnail url="http://img1.ak.crunchyroll.com/i/spire3-tmb/3873f2dbcef91cf5919ec90176d4f7611279747858_large.jpg"/>
+<boxee:property name="custom:seriesname">Bleach</boxee:property>
+<boxee:property name="custom:premium_only">2</boxee:property>
+<boxee:property name="custom:available_resolutions">12,20</boxee:property>
+</item>"""
+
+"""
+title: <title>
+url: <link> or <guid>
+description: <description>
+art: <media:thumbnail url="..."
+category: <category>
+media id: <crunchyroll:mediaId>
+free view start date: <crunchyroll:freePubDate>
+free view end date: <crunchyroll:freeEndPubDate>
+premium view start date: <crunchyroll:premiumPubDate>
+premium view end date: <crunchyroll:premiumEndPubDate>
+publish date: <pubDate>
+publish end date: <crunchyroll:endPubDate>
+episode title: <crunchyroll:episodeTitle>
+episode number: <crunchyroll:episodeNumber>
+duration: <crunchyroll:duration>
+publisher: <crunchyroll:publisher>
+season: <crunchyroll:season>
+availible subtitle languages: <crunchyroll:subtitleLanguages>
+availible countries: <media:restriction relationship="allow" type="country">
+simple rating: <media:rating scheme="urn:simple">nonadult</media:rating>
+rating: ../<rating>
+res from:?
+"""
 
 def titleSort(dictList):
 	"""
