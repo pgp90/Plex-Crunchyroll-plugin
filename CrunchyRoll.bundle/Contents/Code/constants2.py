@@ -56,6 +56,8 @@ EPISODE_MEDIA_LINK_XPATH = "./link" #second choice is "./guid>"
 # doesn't allow setting a timeout value. Blech.
 PRECACHE_URLS = ["http://www.crunchyroll.com/bleach.rss", "http://www.crunchyroll.com/naruto-shippuden.rss"]
 
+BAD_SEASON_IDS = ["19392", "15619"]
+
 Boxee2Resolution = {'12':360, '20':480, '21':720, '23':1080}
 Resolution2Quality = {360:"SD", 480: "480P", 720: "720P", 1080: "1080P"}
 Quality2Resolution = {"SD":360, "480P":480, "720P":720, "1080P": 1080, "Highest Available":1080, "Ask":360}

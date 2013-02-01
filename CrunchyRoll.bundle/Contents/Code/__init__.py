@@ -32,9 +32,9 @@ def Start():
     if Dict['Authentication'] is None:
         resetAuthInfo()
         
-    Dict['episodes'] = None
-    Dict['series'] = None
-    Dict['seasons'] = None
+#    Dict['episodes'] = None
+#    Dict['series'] = None
+#    Dict['seasons'] = None
     #loginAtStart()
     if 'episodes' not in Dict:
         Dict['episodes'] = {}
@@ -999,12 +999,17 @@ def cacheEpisodeListForSeason(seasonId):
     from datetime import datetime, timedelta
 #    from collections import OrderedDict
     
+    if str(seasonId) in BAD_SEASON_IDS:
+    	return
+    
     Log.Debug("running cacheEpisodeListForSeason")
 
     #startTime = Datetime.Now()
     feed =  "%s%s" % (SEASON_FEED_BASE_URL, str(seasonId))
     feedHtml = XML.ElementFromURL(feed,cacheTime=SERIES_FEED_CACHE_TIME)
     items = feedHtml.xpath("//item")
+    if len(items) == 0:
+    	return
     if Dict['episodes'] is None:
         Dict['episodes'] = {}
     
@@ -1012,7 +1017,7 @@ def cacheEpisodeListForSeason(seasonId):
     
     try:
         rating = feedHtml.xpath("//rating")[0].text
-        Log.Debug(rating)
+#        Log.Debug(rating)
         
         # see http://www.classify.org/safesurf/
         #SS~~000. Age Range
@@ -1049,8 +1054,13 @@ def cacheEpisodeListForSeason(seasonId):
         
         if not str(mediaId) in Dict['episodes'] or Dict['episodes'][str(mediaId)]["dateUpdated"] <= feedEntryModified:
             #TODO: should use <title> or <crunchyroll:episodeTitle> for the title?
+#            episodeTitle = " "
+#            Log.Debug(episodeTitle)
             try: episodeTitle = item.xpath("./crunchyroll:episodeTitle", namespaces=PLUGIN_NAMESPACE)[0].text
             except: episodeTitle = item.xpath("./title")[0].text
+            if episodeTitle is None:
+            	episodeTitle = item.xpath("./title")[0].text
+#            Log.Debug(episodeTitle)
             if episodeTitle.startswith("%s - " % seriesTitle):
                 episodeTitle = episodeTitle.replace("%s - " % seriesTitle, "")
             elif episodeTitle.startswith("%s Season " % seriesTitle):
@@ -1061,21 +1071,26 @@ def cacheEpisodeListForSeason(seasonId):
             if "/><br />" in episodeDescription:
                 episodeDescription = episodeDescription.split("/><br />")[1]
             
-            episodeNumber = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
+            try: episodeNumber = int(item.xpath("./crunchyroll:episodeNumber", namespaces=PLUGIN_NAMESPACE)[0].text)
+            except: episodeNumber = 0
             freePubDate = datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
             freePubDateEnd = datetime.strptime(item.xpath("./crunchyroll:freeEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
             premiumPubDate = datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
             premiumPubDateEnd = datetime.strptime(item.xpath("./crunchyroll:premiumEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
-            publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
-            duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
-            subtitleLanguages = item.xpath("./crunchyroll:subtitleLanguages", namespaces=PLUGIN_NAMESPACE)[0].text.split(",")
+            try: publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
+            except: publisher = ""
+            try: duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
+            except: duration = 0
+            try: subtitleLanguages = item.xpath("./crunchyroll:subtitleLanguages", namespaces=PLUGIN_NAMESPACE)[0].text.split(",")
+            except: subtitleLanguages = ""
             simpleRating = item.xpath("./media:rating", namespaces=PLUGIN_NAMESPACE)[0].text
             countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.strip().split(" ")
             try: season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
             except: season = 0
             mediaLink = item.xpath(EPISODE_MEDIA_LINK_XPATH)[0].text.strip()
             category = item.xpath("./category")[0].text
-            thumb = str(item.xpath("./enclosure")[0].get('url')).split("_")[0]+"_full.jpg"
+            try: thumb = str(item.xpath("./enclosure")[0].get('url')).split("_")[0]+"_full.jpg"
+            except: thumb = None
             art = thumb
             
             #FIXME: figure out how to deal with video resolutions
@@ -1389,12 +1404,14 @@ def recoverEpisodeDict(mediaId):
     Log.Debug("#######recovering episode dictionary for mediaID %s" % str(mediaId))
     # make sure the series list is up to date
     cacheFullSeriesList()
-    
+	
     # figure out method of getting the seriesId that the episode is in...
     # get all the seasons that are in that series
-    seasonList = getListOfSeasonsInSeries(seriesId)
-    for seasonId in seasonList:
+	#    seasonList = GetListOfSeasonsInSeries(seriesId)
+	#	hackish meathod...
+    for seasonId in Dict['seasons'].keys():
         cacheEpisodeListForSeason(seasonId)
+	
     
 #    # get a link with title in it.
 #    #import urllib2
