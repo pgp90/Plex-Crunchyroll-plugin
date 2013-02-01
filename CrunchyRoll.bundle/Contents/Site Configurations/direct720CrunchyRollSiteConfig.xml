@@ -23,6 +23,12 @@ windowWidth="1280">
 		</played>
 	</seekbar>
 	
+	<condition name="bar_not_present">
+		<and>
+			<color x="10" y="-28" rgb="000000"/>
+			<color x="-33" y="-28" rgb="000000"/>
+		</and>
+	</condition>
 	<condition name="logged-in">
 		<and>
             <javascript script="login = document.cookie.match(/premium/) == 'premium' ? 1 : 0" matches="1" />
@@ -142,6 +148,14 @@ windowWidth="1280">
 				<goto state="paused"/>
 			</action>
 		</event>
+		<!-- <event>
+			<condition>
+				<condition name="bar_not_present" />
+			</condition>
+			<action>
+				<goto state="end" />
+			</action>
+		</event> -->
 	</state>
 	<state name="waiting">
 		<event>

@@ -325,7 +325,7 @@ def deleteFlashJunk(folder=None):
             if os.path.isdir(file_path):
                 deleteFlashJunk(file_path)
             elif os.path.isfile(file_path):
-                if "www.crunchyroll.com" in file_path:
+                if ".crunchyroll.com" in file_path:
                     Log.Debug("#####Found flash junk at %s" % file_path)
                     if True or "PersistentSettingsProxy.sol" in os.path.basename(file_path):
                         Log.Debug("#######Deleting %s" % file_path)

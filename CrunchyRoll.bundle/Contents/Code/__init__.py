@@ -18,6 +18,30 @@ HTTP.Headers["User-Agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; 
 HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
 
 
+def testEmbed(mediaId):
+    """
+    just a simple test of the ajax request to get the html for embedding a 720p video....
+    """
+    login()
+    
+    try:
+        valuesDict = { "req": "RpcApiMedia_GetEmbedCode", "media_id": str(mediaId), "width": "1280", "height": "752" }
+        response = makeAPIRequest(valuesDict)
+#        Log.Debug(response)
+        response = JSON.ObjectFromString(response)
+        
+        Log.Debug("response...")
+        if response.get('result_code') == 1:
+            Log.Debug(response.get('data'))
+        else:
+            Log.Debug("bad....")
+    except Exception, arg:
+        Log.Error("####Sorry, an error occured when logging in:")
+        Log.Error(repr(Exception) + " "  + repr(arg))
+    
+    return
+
+
 def Start():
     """
     Let's roll.
@@ -32,9 +56,10 @@ def Start():
     if Dict['Authentication'] is None:
         resetAuthInfo()
         
-    Dict['episodes'] = None
-    Dict['series'] = None
-    Dict['seasons'] = None
+    
+#    Dict['episodes'] = None
+#    Dict['series'] = None
+#    Dict['seasons'] = None
     #loginAtStart()
     if 'episodes' not in Dict:
         Dict['episodes'] = {}
@@ -549,6 +574,7 @@ def PlayVideoPremium(sender, mediaId, resolution):
     Log.Debug("##########final URL is '%s'" % theUrl)
     #Log.Debug("##########duration: %s" % str(duration))
     
+    testEmbed(mediaId)
 
     return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
     
@@ -1194,6 +1220,7 @@ def cacheEpisodeListForSeason(seasonId):
 def getEpisodeListFromFeed(feed, sort=True):
 #    import datetime
     try:
+    	#TODO: find a way to get season/series ids for the episodes....
         episodeList = []
         dateUpdated = datetime.utcnow()
         
@@ -1827,9 +1854,9 @@ def DumpInfo(sender):
 def ClearAllData(sender):
     HTTP.ClearCookies()
     HTTP.ClearCache()
-    Dict = {}
+#    Dict = {}
 #    Dict.Reset() #OMG this doesn't work. Just delete the file at Plug-in support/com.plexapp.plugins.CrunchyRoll
-    Dict.Save()
+#    Dict.Save()
     Log.Debug(Prefs)
 #    Prefs = {}
 #    CreatePrefs()
@@ -2521,3 +2548,13 @@ def getArt(url):
         return DataObject(urllib2.urlopen(req).read(), 'image/jpeg')
     else:
         return ret
+
+def stripHtml(html):
+	"""
+	return a string stripped of html tags
+	"""
+	# kinda works
+	res = html.replace("&lt;", "<")
+	res = res.replace("&gt;", ">")
+	res = re.sub(r'<[^>]+>', '', res)
+	return res
