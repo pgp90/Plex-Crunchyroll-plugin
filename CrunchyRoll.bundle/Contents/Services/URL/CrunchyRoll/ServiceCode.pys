@@ -47,6 +47,25 @@ def getEpisodeInfoFromPlayerXml(mediaId):
 		episodeInfo = None
 	return episodeInfo
 
+  title                     = Template.String()
+  summary                   = Template.String()
+  originally_available_at   = Template.Date()
+  content_rating            = Template.String()
+  studio                    = Template.String()
+  posters                   = MediaProxyContainer()
+  banners                   = MediaProxyContainer()
+  art                       = MediaProxyContainer()
+  themes                    = MediaProxyContainer()
+  seasons                   = Template.Map(Season())
+  roles                     = Template.Set(Role())
+  countries                 = Template.Set(Template.String())
+  thumb                     = Template.String()
+  art_url                   = Template.String()
+  episode_count             = Template.Integer()
+  viewed_episode_count      = Template.Integer()
+
+def getObjectForSeries(url):
+	
 
 def MetadataObjectForURL(url):
 	#Log.Debug("Dict.keys(): %s"%repr(Dict.keys()))
