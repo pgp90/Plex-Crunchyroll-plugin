@@ -5,12 +5,16 @@ from Cookie import BaseCookie
 import plistlib
 from datetime import datetime, timedelta
 
+from constants2 import *
+
 import CrunchyrollUserAPI
 import CrunchyrollDataAPI
-import constants2
 import DebugCode
 import Artwork
 
+HTTP.CacheTime = 3600
+HTTP.Headers["User-Agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
+HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
 
 
 def Start():
