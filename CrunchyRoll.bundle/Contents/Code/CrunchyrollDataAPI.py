@@ -178,7 +178,7 @@ def cacheEpisodeListForSeason(seasonId):
     if Dict['episodes'] is None:
         Dict['episodes'] = {}
     
-    updateDate = datetime.utcnow()
+    dateUpdated = datetime.utcnow()
     
     try:
         rating = feedHtml.xpath("//rating")[0].text
@@ -213,7 +213,7 @@ def cacheEpisodeListForSeason(seasonId):
     for item in items:
         mediaId = int(item.xpath("./crunchyroll:mediaId", namespaces=PLUGIN_NAMESPACE)[0].text)
         modifiedDate = item.xpath("./crunchyroll:modifiedDate", namespaces=PLUGIN_NAMESPACE)[0].text
-        Log.Debug(modifiedDate)
+#        Log.Debug(modifiedDate)
         feedEntryModified = datetime.strptime(modifiedDate, "%a, %d %b %Y %H:%M:%S %Z")
         
         if not str(mediaId) in Dict['episodes'] or Dict['episodes'][str(mediaId)]["dateUpdated"] <= feedEntryModified:
@@ -239,9 +239,10 @@ def cacheEpisodeListForSeason(seasonId):
             duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
             subtitleLanguages = item.xpath("./crunchyroll:subtitleLanguages", namespaces=PLUGIN_NAMESPACE)[0].text.split(",")
             simpleRating = item.xpath("./media:rating", namespaces=PLUGIN_NAMESPACE)[0].text
-            countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.TrimWhitespace().split(" ")
-            season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
-            mediaLink = item.xpath("EPISODE_MEDIA_LINK_XPATH")[0].text.TrimWhitespace()
+            countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.strip().split(" ")
+            try: season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
+            except: season = 0
+            mediaLink = item.xpath(EPISODE_MEDIA_LINK_XPATH)[0].text.strip()
             category = item.xpath("./category")[0].text
             thumb = str(item.xpath("./enclosure")[0].get('url')).split("_")[0]+"_full.jpg"
             art = thumb
@@ -340,7 +341,7 @@ def getEpisodeListFromFeed(feed, sort=True):
 #    import datetime
     try:
         episodeList = []
-        updateDate = datetime.utcnow()
+        dateUpdated = datetime.utcnow()
         
         # timeout errors driving me nuts, so
         req = HTTP.Request(feed, timeout=100)
@@ -375,19 +376,19 @@ def getEpisodeListFromFeed(feed, sort=True):
                         except:
                             episodeNumber = None
                         
-                        freePubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
-                        freePubDateEnd = datetime.datetime.strptime(item.xpath("./crunchyroll:freeEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
-                        premiumPubDate = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
-                        premiumPubDateEnd = datetime.datetime.strptime(item.xpath("./crunchyroll:premiumEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        freePubDate = datetime.strptime(item.xpath("./crunchyroll:freePubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        freePubDateEnd = datetime.strptime(item.xpath("./crunchyroll:freeEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        premiumPubDate = datetime.strptime(item.xpath("./crunchyroll:premiumPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+                        premiumPubDateEnd = datetime.strptime(item.xpath("./crunchyroll:premiumEndPubDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
                         try: publisher = item.xpath("./crunchyroll:publisher", namespaces=PLUGIN_NAMESPACE)[0].text
                         except: publisher = ""
                         duration = int(item.xpath("./crunchyroll:duration", namespaces=PLUGIN_NAMESPACE)[0].text) * 1000
                         subtitleLanguages = item.xpath("./crunchyroll:subtitleLanguages", namespaces=PLUGIN_NAMESPACE)[0].text.split(",")
                         simpleRating = item.xpath("./media:rating", namespaces=PLUGIN_NAMESPACE)[0].text
-                        countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.TrimWhitespace().split(" ")
+                        countries = item.xpath("./media:restriction", namespaces=PLUGIN_NAMESPACE)[0].text.strip().split(" ")
                         try: season = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
                         except: season = None
-                        mediaLink = item.xpath(EPISODE_MEDIA_LINK_XPATH)[0].text.TrimWhitespace()
+                        mediaLink = item.xpath(EPISODE_MEDIA_LINK_XPATH)[0].text.strip()
                         category = item.xpath("./category")[0].text
                         try: thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).split("_")[0]+THUMB_QUALITY[Prefs['thumb_quality']]+".jpg"
                         except IndexError:
