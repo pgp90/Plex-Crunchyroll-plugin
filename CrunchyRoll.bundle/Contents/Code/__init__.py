@@ -864,8 +864,6 @@ def MakeQueueMenuItem(queueInfo):
                 "upNextMediaId": episodeMediaId,
                 "seriesId": seriesId#,
 """
-
-
 """
 schema inside Dict{}
     all items (even movies) can be referenced by a the series dict.
@@ -1646,6 +1644,7 @@ def GetEpisodeDict(mediaId):
     return Dict['episodes'].get(str(mediaId))
 
 
+
 def SeriesTitleToUrl(title):
     toremove = ["!", ":", "'", "?", ".", ",", "(", ")", "&", "@", "#", "$", "%", "^", "*", ";", "~", "`"]
     for char in toremove:
@@ -2164,7 +2163,7 @@ def loggedIn():
     Immediately check if user is logged in, and change global values to reflect status. 
     DO NOT USE THIS A LOT. It requires a web fetch.
     """
-    # FIXME a better way would be to use API, but I don't know how to request status
+    #FIXME: a better way would be to use API, but I don't know how to request status
     # alternatively, might as well just login anyway if you're going to touch the network.
     if not Dict['Authentication']:
         resetAuthInfo()
@@ -2183,9 +2182,10 @@ def loggedIn():
     authInfo = Dict['Authentication']
     
     if authorized:
+        Log.Debug(HTTP.CookiesForURL('https://www.crunchyroll.com/'))
         if "Anime Member!" in req.content:
             authInfo['AnimePremium'] = True
-        if "Drama Member!" in req.content: #FIXME untested!
+        if "Drama Member!" in req.content: #FIXME: untested!
             authInfo['DramaPremium'] = True
         
         Dict['Authentication'] = authInfo #FIXME: needed?
@@ -2226,6 +2226,8 @@ def login(force=False):
         # fifteen minutes is reasonable.
         # this also prevents spamming server
         if (force == False) and (time.time() - authInfo['loggedInSince']) < LOGIN_GRACE:
+            Log.Debug("loggedin cookies:")
+            Log.Debug(HTTP.CookiesForURL('https://www.crunchyroll.com/'))
             return True
 
         if force: 
@@ -2241,6 +2243,8 @@ def login(force=False):
             authInfo['failedLoginCount'] = 0
             authInfo['loggedInSince'] = time.time()
             #Dict['Authentication'] = authInfo
+            Log.Debug("loggedin cookies:")
+            Log.Debug(HTTP.CookiesForURL('https://www.crunchyroll.com/'))
             return True
         else:
             Log.Debug("#####WEB LOGIN CHECK FAILED, MUST LOG IN MANUALLY")
@@ -2257,6 +2261,8 @@ def login(force=False):
             authInfo['loggedInSince'] = time.time()
             authInfo['failedLoginCount'] = 0
             #Dict['Authentication'] = authInfo
+            Log.Debug("loggedin cookies:")
+            Log.Debug(HTTP.CookiesForURL('https://www.crunchyroll.com/'))
             return True
         else:
             Log.Error("###WHOAH DOGGIE, LOGGING IN DIDN'T WORK###")
