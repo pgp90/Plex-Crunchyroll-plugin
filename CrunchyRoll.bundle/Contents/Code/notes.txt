@@ -1,0 +1,191 @@
+TODO
+consider using the popup page for the "direct" play since it is almost identical except
+that it allows for javascript control!!!!! which means better seeking and the ability
+to know when the video is done playing.... 
+
+
+flash player mediatypes?
+UV: 6
+drama: 5
+MV: 3
+trailer: 4
+anime: 1
+game: 2
+car: 7
+
+RPC ajax requests...
+/*--------------------------------------------------
+  Ratings-related methods
+--------------------------------------------------*/
+var Rating = {
+  Ypos: new Array(),
+  FreezeRating:new Array(),
+  ClearFrozenRatings:function() {
+    Rating.FreezeRating = new Array();
+  },
+  SetRatingsText:function (text,prefix_id) {
+    if(Rating.FreezeRating[prefix_id]) return;
+    var elem = $('#' + prefix_id + 'ratingsText');
+    if(elem) {
+      elem.text(text);
+    }
+  },
+  SetStars:function(num,prefix_id,height_offset,height) {
+    if(Rating.FreezeRating[prefix_id]) return;
+    var y = parseInt(num * -2 * height) - parseInt(height_offset);
+    var widget = $('#' + prefix_id + 'rate_widget');
+    widget.css('backgroundPosition','0px '+y+'px');
+  },
+  SetRating:function(num, ftype, fid, prefix_id, height_offset, height) {
+    //if(Rating.FreezeRating[prefix_id]) return;
+    $.ajax({
+      url:'/ajax/',
+      type:'POST',
+      data:{'req':'RpcApiRating_SetRating',
+            'ftype':ftype,
+            'fid':fid,
+            'rating':num},
+      success:function(resp) {
+        resp = Rpc.parseJSON(resp);
+        if (Rpc.RESULT_SUCCESS == resp.result_code) {
+          $('#' + prefix_id +"rate_widget").parent().addClass("rated");
+          if($('#' + prefix_id+"sampleSizeText")) {
+            $('#' + prefix_id+"sampleSizeText").text(resp.data.sample_size_text);
+          }
+          if($('#' + prefix_id+"avgRatingText")) {
+            $('#' + prefix_id+"avgRatingText").text(resp.data.avg_rating_text);
+          }
+          Rating.ClearFrozenRatings();
+          Rating.SetRatingsText(l('generic.sentencecase.thanks_for_rating_b',"Thanks for rating!"),prefix_id);
+          Rating.SetStars(num,prefix_id,height_offset,height);
+          Rating.FreezeRating[prefix_id] = true; 
+        } else {
+          Rpc.showAlert(resp);
+        }
+      }
+    });
+  }
+};
+
+var Localization = {
+  SetLang: function(lang) {
+    $.ajax({
+      url:"/ajax/",
+      type:"POST",
+      data:{
+        req:"RpcApiTranslation_SetLang",
+        locale:lang
+      },
+      success:Rpc.saveMessageAndRefreshPage
+    });
+    return false;
+  },
+  Init: function () {
+    $('body').delegate('.localized','contextmenu',Localization.ShowDialog);
+  },
+  ShowDialog: function(e) {
+    var span = $(e.target);
+    //check two levels up for a localized element.
+    if (!span.hasClass("localized")) {
+      span = $(span.parentNode);
+      if (!span.hasClass("localized")) {
+        span = $(span.parentNode);
+      }
+    }
+    //no localized element found, return.
+    if (!span.hasClass("localized")) {
+      return false;
+    }
+    Dialog.offset_parent = span;
+    Dialog.horizontal_offset = 50;
+    Dialog.vertical_offset = -50;
+    Dialog.should_scroll = false;
+    var url = '/dialog_edit_translation';
+    url += '?translation_pattern_id=' + span.attr('translation_pattern_id');
+    url += '&rt=json';
+    Dialog.onclick(url);
+    e.stopPropagation(); //dont show context menu
+    return false;
+  },
+  DialogCallbackEdit: function(json) {
+    var element_to_update = $('.translate-grid .localized[translation_pattern_id='+json.data.translation_pattern_id+']');
+    element_to_update.stop().css("background-color", "#ffff9c").animate({ "background-color":"#ffffff"}, 500, null,
+                                                                        function() {
+                                                                          element_to_update.css('background-color','');
+                                                                        });
+    element_to_update.parents('tr.missing').stop().animate({"background-color":"#ffffff"}, 500, null,
+                                                           function() {
+                                                             element_to_update.parents('tr.missing').find('.completed').text('Yes');
+                                                             element_to_update.parents('tr.missing').removeClass('missing').addClass('filled').css('background-color','');
+                                                           });
+
+    element_to_update.text(json.data.text);
+    Dialog.callbackDisplayMessage(json);
+  },
+  EnableEdit: function() {
+    $.ajax({
+      url:'/ajax/',
+      type:'POST',
+      data:{
+        req:'RpcApiTranslation_TurnOn'
+      },
+      success:Rpc.saveMessageAndRefreshPage
+    });
+    return false;
+  },
+  DisableEdit: function() {
+    $.ajax({
+      url:'/ajax/',
+      type:'POST',
+      data:{
+        req:'RpcApiTranslation_TurnOff'
+      },
+      success:Rpc.saveMessageAndRefreshPage
+    });
+    return false;
+  }
+};
+
+var PopOut = {
+  child: null,
+  open: function (media_id, video_format, video_encode_quality, time) {
+    if (!this.child || this.child.closed) {
+      var params = {
+        media_id: media_id,
+        video_format: video_format,
+        video_encode_quality: video_encode_quality,
+        time: time
+      };
+      this.child = window.open("/popout?" + $.param(params),
+                               "popout",
+                               this.getFeatures(video_encode_quality));
+    } else {
+      this.child.focus();
+    }
+  },
+
+  getVideoDimensions: function (video_encode_quality) {
+    switch (String(video_encode_quality)) {
+      case "10":
+      case "60":
+      case "70":
+      case "71":
+        return [640, 360];
+      case "20":
+      case "61":
+        return [854, 480];
+      case "30":
+      case "62":
+        return [1280, 720];
+      default:
+        return [854, 480];
+    }
+  },
+
+  getFeatures: function (video_encode_quality) {
+    var dims = this.getVideoDimensions(video_encode_quality);
+    var control_bar_height = 32;
+    return "width=" + dims[0] + ",height=" + (dims[1] + control_bar_height);
+  }
+
+};
