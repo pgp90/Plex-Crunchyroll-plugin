@@ -9,77 +9,6 @@ import CrunchyrollUserAPI
 import CrunchyrollDataAPI
 import constants2
 import DebugCode
-import Artwork
-
-
-
-def Start():
-    """
-    Let's roll.
-    """
-    Plugin.AddPrefixHandler(CRUNCHYROLL_PLUGIN_PREFIX, TopMenu, "CrunchyRoll", CRUNCHYROLL_ICON, CRUNCHYROLL_ART)
-    Plugin.AddViewGroup("List", viewMode = "List", mediaType = "List")
-    MediaContainer.art = R(CRUNCHYROLL_ART)
-    MediaContainer.title1 = "CrunchyRoll"
-    MediaContainer.viewGroup = "List"
-    DirectoryItem.thumb = R(CRUNCHYROLL_ICON)
-    
-    if Dict['Authentication'] is None:
-        resetAuthInfo()
-        
-    #loginAtStart()
-    if 'episodes' not in Dict:
-        Dict['episodes'] = {}
-    if 'series' not in Dict:
-        Dict['series'] = {}
-    if 'fanart' not in Dict:
-        Dict['fanart'] = {}
-    if 1==0:
-        testCacheAll()
-    if False is True:
-        cacheAllSeries()
-        listAllEpTitles()
-    
-    if False: # doesn't work because cache won't accept a timeout value
-        for cacheThis in PRECACHE_URLS:
-            HTTP.PreCache(cacheThis, cacheTime=60*60*10)
-
-def ValidatePrefs():
-    u = Prefs['username']
-    p = Prefs['password']
-    h = Prefs['quality']
-    if u and p:
-        loginSuccess = login(force = True)
-        if not loginSuccess:
-            mc = MessageContainer("Login Failure",
-                "Failed to login, check your username and password, and that you've read your confirmation email."
-                )
-            return mc
-        else:
-            mc = MessageContainer("Success",
-                "Preferences Saved."
-                )
-            return mc
-
-    elif u or p:
-        mc = MessageContainer("Login Failure",
-            "Please specify both a username and a password."
-            )
-        return mc
-    else:
-        # no username or password
-        try:
-            logout()
-        except: pass
-        
-        if Prefs['quality'] != "SD": # and Prefs['quality'] != "Highest Available":
-            mc = MessageContainer("Quality Warning", "Only premium members can watch in high definition. Your videos will show in standard definiton only.")
-        else:
-            mc = MessageContainer("Success",
-                "Preferences Saved."
-                )
-        return mc
-
 
 
 def TopMenu():
@@ -824,3 +753,4 @@ def MakeQueueMenuItem(queueInfo):
                 "upNextMediaId": episodeMediaId,
                 "seriesId": seriesId#,
 """
+

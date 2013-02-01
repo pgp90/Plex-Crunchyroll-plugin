@@ -9,6 +9,7 @@ API_URL                      = "://www.crunchyroll.com/ajax/"
 # boxee feed has duration info.
 # potatoh, potatah
 QUEUE_URL					 = "http://www.crunchyroll.com/queue"
+MEDIA_URL					 = "http://www.crunchyroll.com/media-"
 SEARCH_URL                   = "http://www.crunchyroll.com/rss/search?q="
 #SEARCH_URL                  = "http://www.crunchyroll.com/boxee_feeds/search?q="
 SERIES_FEED_BASE_URL         = "http://www.crunchyroll.com/boxee_feeds/"
