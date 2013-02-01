@@ -32,9 +32,9 @@ def Start():
     if Dict['Authentication'] is None:
         resetAuthInfo()
         
-#    Dict['episodes'] = None
-#    Dict['series'] = None
-#    Dict['seasons'] = None
+    Dict['episodes'] = None
+    Dict['series'] = None
+    Dict['seasons'] = None
     #loginAtStart()
     if 'episodes' not in Dict:
         Dict['episodes'] = {}
@@ -144,6 +144,9 @@ def QueueEntryMenu(sender,queueInfo):
     s = Dict['series']
     sId = str(queueInfo['seriesId'])
     series = GetSeriesDict(sId)
+    for seasonId in series['seasonList']:
+		cacheEpisodeListForSeason(seasonId)
+		
     thumb = getSeriesThumbUrl(series)#(s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
     art = getSeriesArtUrl(series)#(s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
     if queueInfo['upNextMediaId'] is not None:
@@ -1405,6 +1408,7 @@ def recoverEpisodeDict(mediaId):
     # make sure the series list is up to date
     cacheFullSeriesList()
 	
+    #FIXME: needs work ASAP!!!!
     # figure out method of getting the seriesId that the episode is in...
     # get all the seasons that are in that series
 	#    seasonList = GetListOfSeasonsInSeries(seriesId)
@@ -1522,7 +1526,7 @@ def GetSeriesDict(seriesId):
     (queue items on server, e.g.)
     Sry bout that.
     """
-    if str(seriesId) not in Dict['series']:
+    if Dict['series'] is None or str(seriesId) not in Dict['series']:
         # get brutal
         Log.Debug("#######recovering series dictionary for seriesID %s" % str(seriesId))
         cacheFullSeriesList()
