@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from constants2 import *
 
-import CrunchyrollUserAPI
+from CrunchyrollUserAPI import *
 
 """
 schema inside Dict{}
@@ -77,12 +77,28 @@ schema inside Dict{}
     }
 """
 
+def debugFeedItem(item):
+    for sub in list(item):
+        text1 = "%s: %s" % (sub.tag, sub.text)
+        Log.Debug(text1)
+        for sub2 in list(sub):
+            text2 = "\t%s/%s: %s\n%s" % (sub.tag, sub2.tag, sub2.text, list(sub2))
+            Log.Debug(text2)
+            for sub3 in list(sub2):
+                text3 = "\t\t%s/%s/%s: %s\n%s" % (sub.tag, sub2.tag, sub3.tag, sub3.text, list(sub3))
+                Log.Debug(text3)
+                for sub4 in list(sub3):
+                    text4 = "\t\t\t%%s/%s/%s: %s\n%s" % (sub.tag, sub2.tag, sub3.tag, sub4.tag, sub4.text, list(sub4))
+                    Log.Debug(text4)
+
 
 PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
 
 def cacheFullSeriesList():
     #startTime = Datetime.Now()
-    feedHtml = HTML.ElementFromURL(SERIES_FEED_URL,cacheTime=SERIES_FEED_CACHE_TIME)
+    PLUGIN_NAMESPACE = {"media":"http://search.yahoo.com/mrss/", "crunchyroll":"http://www.crunchyroll.com/rss"}
+    feedHtml = XML.ElementFromURL(SERIES_FEED_URL,cacheTime=SERIES_FEED_CACHE_TIME)
+#    Log.Debug(str(feedHtml))
     items = feedHtml.xpath("//item")
     if Dict['series'] is None:
         Dict['series'] = {}
@@ -90,15 +106,16 @@ def cacheFullSeriesList():
     if Dict['seasons'] is None:
         Dict['seasons'] = {}
     
-    updateDate = datetime.now()
+    dateUpdated = datetime.utcnow()
     
     for item in items:
-        seasonId = int(item.xpath("./guid")[0].text.split(".com/")[1].text)
+#        debugFeedItem(item.xpath("."))
+        seasonId = int(item.xpath("./guid")[0].text.split(".com/")[1].split("-")[1])
         try:
             seasonNumber = int(item.xpath("./crunchyroll:season", namespaces=PLUGIN_NAMESPACE)[0].text)
         except:
             seasonNumber = None
-        thumb = str(item.xpath("./media:thumbnail")[0].get('url')).split("_")[0]+"_full.jpg"
+        thumb = str(item.xpath("./media:thumbnail", namespaces=PLUGIN_NAMESPACE)[0].get('url')).split("_")[0]+"_full.jpg"
         art = thumb
         seasonTitle = item.xpath("./title")[0].text
         seriesId = int(item.xpath("./crunchyroll:series-guid", namespaces=PLUGIN_NAMESPACE)[0].text.split(".com/series-")[1])
@@ -107,15 +124,15 @@ def cacheFullSeriesList():
         description = item.xpath("./description")[0].text
         seriesDescription = None
         
-        if Dict['series'][str(seriesId)] is None:
+        if not str(seriesId) in Dict['series'] or Dict['series'][str(seriesId)] is None:
             series = {
-                "title": title,
+                "title": seasonTitle,
                 "seriesId": seriesId,
                 "tvdbId": tvdbId,
                 "description": seriesDescription,
                 "thumb": thumb,
                 "art": art,
-                "rating": rating,
+                "rating": None,
                 "simpleRating": simpleRating,
                 "dateUpdated": dateUpdated,
                 "seasonList": []
@@ -127,9 +144,9 @@ def cacheFullSeriesList():
         
         Dict['series'][str(seriesId)]['dateUpdated'] = dateUpdated
         
-        if Dict['seasons'][str(seasonId)] is None:
+        if not str(seasonId) in Dict['seasons'] or Dict['seasons'][str(seasonId)] is None:
             season = {
-                "title": title,
+                "title": seasonTitle,
                 "seasonId": seasonId,
                 "seriesId": seriesId,
                 "thumb": thumb,
@@ -140,26 +157,31 @@ def cacheFullSeriesList():
                 "seasonNumber": seasonNumber,
                 "description": description
             }
-            Dict['seasons'][str(seriesId)] = season
+            Dict['seasons'][str(seasonId)] = season
         
     
     #make sure that the season list for each series is in order
-    for series in Dict['series']:
-        newSeasonList = sorted(series["seasonList"], key=lambda k: Dict['seasons'][str(k)]["seasonNumber"])
-        Dict['series'][str(series['seriesId'])]['seasonList'] = newSeasonList
+    for seriesid in Dict['series'].keys():
+        series = Dict['series'][seriesid]
+#        Log.Debug(series['seasonList'])
+        newSeasonList = sorted(series['seasonList'], key=lambda k: Dict['seasons'][str(k)]['seasonNumber'])
+        Dict['series'][seriesid]['seasonList'] = newSeasonList
     
 def cacheEpisodeListForSeason(seasonId):
+    from datetime import datetime, timedelta
+    
+
     #startTime = Datetime.Now()
-    feed =  "%s/%s" % (SEASON_FEED_BASE_URL, str(seasonId))
-    feedHtml = HTML.ElementFromURL(feed,cacheTime=SERIES_FEED_CACHE_TIME)
+    feed =  "%s%s" % (SEASON_FEED_BASE_URL, str(seasonId))
+    feedHtml = XML.ElementFromURL(feed,cacheTime=SERIES_FEED_CACHE_TIME)
     items = feedHtml.xpath("//item")
     if Dict['episodes'] is None:
         Dict['episodes'] = {}
     
-    updateDate = datetime.now()
+    updateDate = datetime.utcnow()
     
     try:
-        rating = item.xpath("//rating")[0].text
+        rating = feedHtml.xpath("//rating")[0].text
         Log.Debug(rating)
         
         # see http://www.classify.org/safesurf/
@@ -182,7 +204,7 @@ def cacheEpisodeListForSeason(seasonId):
     except (ValueError, IndexError, TypeError):
         rating = None
     
-    seriesTitle = item.xpath("//crunchyroll:seriesTitle", namespaces=PLUGIN_NAMESPACE)[0].text
+    seriesTitle = feedHtml.xpath("//crunchyroll:seriesTitle", namespaces=PLUGIN_NAMESPACE)[0].text
     seriesId = Dict['seasons'][str(seasonId)]["seriesId"]
     if not Dict['series'][str(seriesId)]["title"] is seriesTitle:
         Log.Debug("Series (%s) title (%s) does not match the one on the season (%s) feed (%s)." % (str(seriesId), Dict['series'][str(seriesId)]["title"], str(seasonId), seriesTitle))
@@ -190,7 +212,9 @@ def cacheEpisodeListForSeason(seasonId):
     
     for item in items:
         mediaId = int(item.xpath("./crunchyroll:mediaId", namespaces=PLUGIN_NAMESPACE)[0].text)
-        feedEntryModified = datetime.datetime.strptime(item.xpath("./crunchyroll:modifiedDate", namespaces=PLUGIN_NAMESPACE)[0].text, FEED_DATE_FORMAT)
+        modifiedDate = item.xpath("./crunchyroll:modifiedDate", namespaces=PLUGIN_NAMESPACE)[0].text
+        Log.Debug(modifiedDate)
+        feedEntryModified = datetime.strptime(modifiedDate, "%a, %d %b %Y %H:%M:%S %Z")
         
         if not str(mediaId) in Dict['episodes'] or Dict['episodes'][str(mediaId)]["dateUpdated"] <= feedEntryModified:
             #TODO: should use <title> or <crunchyroll:episodeTitle> for the title?
@@ -313,10 +337,10 @@ def cacheEpisodeListForSeason(seasonId):
 #                seriesList.append(series)
 
 def getEpisodeListFromFeed(feed, sort=True):
-    import datetime
+#    import datetime
     try:
         episodeList = []
-        updateDate = datetime.now()
+        updateDate = datetime.utcnow()
         
         # timeout errors driving me nuts, so
         req = HTTP.Request(feed, timeout=100)
@@ -460,13 +484,13 @@ def getSeriesListFromFeed(feed, sort=True, sortBy="title"):
             #TODO: figure out what to do if the series can't be found in Dict['series']
             Log.Debug("Could not find series with seriesGUID %s in Dict['series'].")
         else:
-            seriesList.append(Dict['series'])
+            seriesList.append(Dict['series'][str(seriesGUID)])
         
     if sort:
 #        if sortBy == title:
-#            return sorted(episodeList, key=lambda k: getSortTitle(k))
+#            return sorted(seriesList, key=lambda k: getSortTitle(k))
 #        else:
-            return sorted(episodeList, key=lambda k: k[sortBy])
+            return sorted(seriesList, key=lambda k: k[sortBy])
     else:
         return seriesList
 
@@ -682,7 +706,7 @@ def GetListOfSeasonsInSeries(seriesId):
             return []
     
     # the seriesId is in the cache so return the list of seasonIds
-    return Dict['series'][str(seriesId)]['seasons']
+    return Dict['series'][str(seriesId)]['seasonList']
 
 def GetSeasonDict(seasonId):
     # make sure the seasonId is in the cache
@@ -709,6 +733,10 @@ def GetListOfEpisodesInSeason(seasonId):
     
     # the seriesId is in the cache so return the list of seasonIds
     #TODO: should probably add some code to make sure that the list is up to date.
+    if Dict['seasons'][str(seasonId)]['epsRetreived'] is None or (datetime.utcnow() - Dict['seasons'][str(seasonId)]['epsRetreived']).hours > 5:
+        cacheEpisodeListForSeason(seasonId)
+        Dict['seasons'][str(seasonId)]['epsRetreived'] = datetime.utcnow()
+        
     return Dict['seasons'][str(seasonId)]['epList']
 
 def GetEpisodeDict(mediaId):

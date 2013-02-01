@@ -7,9 +7,9 @@ from datetime import datetime, timedelta
 
 from constants2 import *
 
-import CrunchyrollUserAPI
-import CrunchyrollDataAPI
-import Artwork
+from CrunchyrollUserAPI import *
+from CrunchyrollDataAPI import *
+from Artwork import *
 
 def DebugMenu(sender, advanced=True):
     if advanced: title = "Debug"

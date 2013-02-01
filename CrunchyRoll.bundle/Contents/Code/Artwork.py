@@ -28,7 +28,7 @@ def getEpisodeThumbUrl(episode):
     if thumbUrl == "" or thumbUrl is None:
         thumbUrl = R(CRUNCHYROLL_ICON)
     Log.Debug("episode thumb url: %s"%thumbUrl)
-    return url
+    return thumbUrl
 
 def getSeasonArtUrl(season):
     """
@@ -50,7 +50,7 @@ def getSeasonThumbUrl(season):
     if thumbUrl == "" or thumbUrl is None:
         thumbUrl = R(CRUNCHYROLL_ICON)
     Log.Debug("season thumb url: %s"%thumbUrl)
-    return url
+    return thumbUrl
 
 def getSeriesArtUrl(series):
     """
@@ -72,7 +72,7 @@ def getSeriesThumbUrl(series):
     if thumbUrl == "" or thumbUrl is None:
         thumbUrl = R(CRUNCHYROLL_ICON)
     Log.Debug("series thumb url: %s"%thumbUrl)
-    return url
+    return thumbUrl
 
 def getThumb(url):
     """
