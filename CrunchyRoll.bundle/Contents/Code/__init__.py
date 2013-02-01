@@ -151,7 +151,7 @@ def QueueEntryMenu(sender,queueInfo):
         PlayNext = MakeEpisodeItem(nextEp)
         dir.Append(PlayNext)
     RemoveSeries = Function(DirectoryItem(RemoveFromQueue, title="Remove series from queue"), seriesId=sId)
-    ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(GetArt,url=art)), seriesId=queueInfo['seriesId'])
+    ViewSeries = Function(DirectoryItem(SeriesMenu, "View Series", thumb=thumb, art=Function(getArt,url=art)), seriesId=queueInfo['seriesId'])
     dir.Append(RemoveSeries)
     dir.Append(ViewSeries)
     dir.noCache = 1
@@ -1370,9 +1370,10 @@ def GetQueueList():
 
             nextUpText = fixit
 
+
             queueItem = {
                 "title": title,
-                "upNextMediaId": episodeMediaId,
+                "upNextMediaId": episodeMediaID,
                 "seriesId": seriesId#,
             }
             queueList.append(queueItem)
