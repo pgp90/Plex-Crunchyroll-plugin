@@ -51,6 +51,6 @@
 		<string>com.plexapp.search.CrunchyRoll</string>
 	</dict>
 	<key>PlexPluginDevMode</key>
-	<string>1</string>
+	<string>0</string>
 </dict>
 </plist>
