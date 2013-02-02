@@ -8,14 +8,14 @@ from datetime import datetime, timedelta
 
 from constants2 import *
 
+
+from CrunchyrollAPI import *
+
 #from CrunchyrollUserAPI import *
 #from CrunchyrollDataAPI import *
 #from DebugCode import *
 #from Artwork import *
 
-HTTP.CacheTime = 3600
-HTTP.Headers["User-Agent"] = "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_6; en-gb) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16"
-HTTP.Headers["Accept-Encoding"] = "gzip, deflate"
 
 
 def Start():
@@ -50,7 +50,7 @@ def ValidatePrefs():
     p = Prefs['password']
     h = Prefs['quality']
     if u and p:
-        loginSuccess = login(force = True)
+        loginSuccess = CRAPI.Login(force = True)
         if not loginSuccess:
             mc = MessageContainer("Login Failure", "Failed to login, check your username and password, and that you've read your confirmation email.")
             return mc
@@ -64,7 +64,7 @@ def ValidatePrefs():
     else:
         # no username or password
         try:
-            logout()
+            CRAPI.Logout()
         except: pass
         
         if Prefs['quality'] != "SD": # and Prefs['quality'] != "Highest Available":
@@ -76,13 +76,13 @@ def ValidatePrefs():
 
 def TopMenu():
     "from which all greatness springs."
-    login()
+    CRAPI.Login()
 
     Log.Debug("art: %s"%R(CRUNCHYROLL_ART))
 
     dir = MediaContainer(disabledViewModes=["Coverflow"], title1="Crunchyroll", noCache=True)
     
-    if isRegistered():
+    if CRAPI.IsRegistered():
         dir.Append(Function(DirectoryItem(QueueMenu,"View Queue", thumb=R(QUEUE_ICON), ART=R(CRUNCHYROLL_ART))))
         
     dir.Append(Function(DirectoryItem(RecentAdditionsMenu,"Recent Additions", title1="Recent Additions", thumb=R(CRUNCHYROLL_ICON), art=R(CRUNCHYROLL_ART))))
@@ -105,9 +105,9 @@ def QueueMenu(sender):
     Show series titles that the user has in her queue
     """
     # FIXME plex seems to cache this, so removing/adding doesn't give feedback
-    if isRegistered():
+    if CRAPI.IsRegistered():
         dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Series", noCache=True)
-        queueList = GetQueueList()
+        queueList = CRAPI.GetQueueList()
         for queueInfo in queueList:
             dir.Append(MakeQueueMenuItem(queueInfo))
         return dir
@@ -122,14 +122,14 @@ def QueueEntryMenu(sender,queueInfo):
     """
     dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"], noCache=True)
     sId = str(queueInfo['seriesId'])
-    series = GetSeriesDict(sId)
+    series = CRAPI.GetSeriesDict(sId)
     for seasonId in series['seasonList']:
-        cacheEpisodeListForSeason(seasonId)
+        CRAPI._cacheEpisodeListForSeason(seasonId)
         
     thumb = getSeriesThumbUrl(series)
     art = getSeriesArtUrl(series)
     if queueInfo['upNextMediaId'] is not None:
-        nextEp = GetEpisodeDict(queueInfo['upNextMediaId'])#getEpInfoFromLink(queueInfo['epToPlay'])
+        nextEp = CRAPI.GetEpisodeDict(queueInfo['upNextMediaId'])#getEpInfoFromLink(queueInfo['epToPlay'])
         PlayNext = MakeEpisodeItem(nextEp)
         dir.Append(PlayNext)
     RemoveSeries = Function(DirectoryItem(RemoveFromQueue, title="Remove series from queue"), seriesId=sId)
@@ -143,7 +143,7 @@ def PopularVideosMenu(sender):
     """
     show popular videos.
     """
-    episodeList = GetPopularVideos()
+    episodeList = CRAPI.GetPopularVideos()
     if episodeList:
         dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
         for episode in episodeList:
@@ -157,7 +157,7 @@ def RecentAdditionsMenu(sender):
     """
     show recently added videos
     """
-    episodeList = GetRecentVideos()
+    episodeList = CRAPI.GetRecentVideos()
     if episodeList:
         dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Recent")
         for episode in episodeList:
@@ -215,11 +215,11 @@ def AlphaListMenu(sender,type=None,query=None):
             queryCharacters = (query.lower(), query.upper())
         dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=query)
         if type==ANIME_TYPE:
-            seriesList = GetAnimeSeriesList()
+            seriesList = CRAPI.GetAnimeSeriesList()
         elif type==DRAMA_TYPE:
-            seriesList = GetDramaSeriesList()
+            seriesList = CRAPI.GetDramaSeriesList()
         else:
-            seriesList = GetAllSeries()
+            seriesList = CRAPI.GetAllSeries()
 
         seriesList = sorted(seriesList, key=lambda k: getSortTitle(k)) 
                    
@@ -242,11 +242,11 @@ def RecentListMenu(sender, type=None):
     dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Recent")
     episodeList = []
     if type==ANIME_TYPE:
-        episodeList = GetRecentAnimeEpisodes()
+        episodeList = CRAPI.GetRecentAnimeEpisodes()
     elif type==DRAMA_TYPE:
-        episodeList = GetRecentDramaEpisodes()
+        episodeList = CRAPI.GetRecentDramaEpisodes()
     else:
-        episodeList = GetRecentVideos()
+        episodeList = CRAPI.GetRecentVideos()
         
     for episode in episodeList:
         dir.Append(MakeEpisodeItem(episode))
@@ -261,11 +261,11 @@ def PopularListMenu(sender,type=None):
     dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="Popular")
     seriesList = []
     if type==ANIME_TYPE:
-        seriesList = GetPopularAnimeSeries()
+        seriesList = CRAPI.GetPopularAnimeSeries()
     elif type==DRAMA_TYPE:
-        seriesList = GetPopularDramaSeries()
+        seriesList = CRAPI.GetPopularDramaSeries()
     else:
-        seriesList = GetPopularVideos()
+        seriesList = CRAPI.GetPopularVideos()
         
     for series in seriesList:
         dir.Append(MakeSeriesItem(series))
@@ -285,11 +285,11 @@ def GenreListMenu(sender,type=None,genre=None):
         dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=genre)
             
         if type == ANIME_TYPE:
-            seriesList = GetAnimeSeriesByGenre(genre)
+            seriesList = CRAPI.GetAnimeSeriesByGenre(genre)
         elif type == DRAMA_TYPE:
-            seriesList = GetDramaSeriesByGenre(genre)
+            seriesList = CRAPI.GetDramaSeriesByGenre(genre)
         else:
-            seriesList = GetSeriesByGenre(genre)
+            seriesList = CRAPI.GetSeriesByGenre(genre)
             
         for series in seriesList:
             dir.Append(MakeSeriesItem(series))
@@ -312,7 +312,7 @@ def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
     startTime = datetime.utcnow()
     dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=seriesTitle)
     
-    if login() and isRegistered():
+    if CRAPI.Login() and CRAPI.IsRegistered():
         dir.Append(
             Function(PopupDirectoryItem(
                     QueueChangePopupMenu, 
@@ -323,10 +323,10 @@ def SeriesMenu(sender,seriesId=None, seriesTitle="Series"):
             )
 
     Log.Debug("Loading episode list for series number " + str(seriesId))
-    seasonList = GetListOfSeasonsInSeries(seriesId)
+    seasonList = CRAPI.GetListOfSeasonsInSeries(seriesId)
 #    Log.Debug("season nums: %s" % seasonNums)
     for seasonId in seasonList:
-        season = GetSeasonDict(seasonId)
+        season = CRAPI.GetSeasonDict(seasonId)
         dir.Append(MakeSeasonItem(season))
     dtime = datetime.utcnow()-startTime
     Log.Debug("SeriesMenu (%s) execution time: %s"%(seriesId, dtime))
@@ -337,13 +337,13 @@ def SeasonMenu(sender,seasonId):
     Display a menu showing episodes available in a particular season.
     """
     Log.Debug(str(seasonId))
-    season = GetSeasonDict(seasonId)
+    season = CRAPI.GetSeasonDict(seasonId)
     dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2="%s - Season %s"%(sender.title2,str(season['seasonNumber'])))
-    epList = GetListOfEpisodesInSeason(seasonId)#getEpisodeListForSeason(seasonId)
+    epList = CRAPI.GetListOfEpisodesInSeason(seasonId)#getEpisodeListForSeason(seasonId)
     Log.Debug("len %s"%str(len(epList)))
     
     for episodeId in epList:
-        episode = GetEpisodeDict(episodeId)
+        episode = CRAPI.GetEpisodeDict(episodeId)
 #        Log.Debug(episode)
         dir.Append(MakeEpisodeItem(episode))
     return dir
@@ -363,8 +363,8 @@ def RemoveFromQueue(sender,seriesId):
     """
     remove seriesID from queue
     """
-    login()
-    result = removeFromQueue(seriesId)
+    CRAPI.Login()
+    result = CRAPI.RemoveSeriesFromQueue(seriesId)
     if result:
         return MessageContainer("Success",'Removed from Queue')
     else:
@@ -374,8 +374,8 @@ def AddToQueue(sender,seriesId,url=None):
     """
     Add seriesId to the queue.
     """
-    login()
-    result = addToQueue(seriesId)
+    CRAPI.Login()
+    result = CRAPI.AddSeriesToQueue(seriesId)
     
     if result:
         return MessageContainer("Success",'Added to Queue')
@@ -387,10 +387,10 @@ def QueueChangePopupMenu(sender, seriesId):
     Popup a Menu asking user if she wants to
     add or remove this series from her queue
     """
-    login()
+    CRAPI.Login()
     dir = MediaContainer(title1="Queue",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
-    if isRegistered():
-        queueList = GetQueueList()
+    if CRAPI.IsRegistered():
+        queueList = CRAPI.GetQueueList()
         inQ = False
         for item in queueList:
             if item['seriesId'] == seriesId:
@@ -487,7 +487,7 @@ def MakeEpisodeItem(episode):
     """
     
     giveChoice = True
-    if not hasPaid() or Prefs['quality'] != "Ask":
+    if not CRAPI.HasPaid() or Prefs['quality'] != "Ask":
         #Log.Debug("Quality is not Ask")
         giveChoice = False
     elif not Prefs['password'] or not Prefs['username']:
@@ -500,9 +500,9 @@ def MakeEpisodeItem(episode):
         kind = str(episode.get('category'))
         
         if kind.lower() == "anime":
-            giveChoice = isPremium(ANIME_TYPE)
+            giveChoice = CRAPI.IsPremium(ANIME_TYPE)
         elif kind.lower() == "drama":
-            giveChoice = isPremium(DRAMA_TYPE)
+            giveChoice = CRAPI.IsPremium(DRAMA_TYPE)
         else:
             giveChoice = True # no category, so assume they get the choice.
     
@@ -518,7 +518,7 @@ def MakeEpisodeItem(episode):
     available = True
     reason = "No date, assuming it's available"
 
-    if hasPaid() and isPremium(checkCat):
+    if CRAPI.HasPaid() and CRAPI.IsPremium(checkCat):
         availableAt = episode.get("premiumPubDate")
         if availableAt != None:
             if availableAt < datetime.utcnow():
@@ -642,7 +642,7 @@ def MakeQueueMenuItem(queueInfo):
     to remove it from the queue.
     """
     Log.Debug("queueinfo: %s" % queueInfo)
-    series = GetSeriesDict(queueInfo['seriesId'])
+    series = CRAPI.GetSeriesDict(queueInfo['seriesId'])
     thumb = getSeriesThumbUrl(series)#(s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
     art = getSeriesArtUrl(series)#(s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
     queueItem = Function(DirectoryItem(
@@ -811,13 +811,13 @@ def LogoutFromMenu(sender):
     """
     logout and return a message container with the result
     """
-    logout()
-    if not loggedIn():
+    CRAPI.Logout()
+    if not CRAPI.LoggedIn():
         dir = MessageContainer("Logout", "You are now logged out")
     else:
         dir = MessageContainer("Logout Failure", "Nice try, but logout failed.")
         Log.Debug("####LOGOUT FAILED, HERE'S YOUR COOKIE")
-        Log.Debug(HTTP.CookiesForURL(BASE_URL) )
+        Log.Debug(HTTP.CookiesForURL(CRAPI._BASE_URL) )
 
     return dir
 
@@ -825,10 +825,10 @@ def LoginFromMenu(sender):
     if not Prefs['username'] or not Prefs['password']:
         dir = MessageContainer("Login Brain Fart", "You cannot login because your username or password are blank.")
     else:
-        result = login(force = True)
+        result = CRAPI.Login(force = True)
         if not result:
             dir = MessageContainer("Auth failed", "Authentication failed at crunchyroll.com")
-        elif isRegistered():
+        elif CRAPI.IsRegistered():
             dir = MessageContainer("Login", "You are logged in, congrats.")
         else:
             dir = MessageContainer("Login Failure", "Sorry, bro, you didn't login!")
@@ -1107,3 +1107,161 @@ def getArt(url):
     else:
         return ret
 
+def PlayVideoMenu(sender, mediaId):
+    """
+    construct and return a MediaContainer that will ask the user
+    which resolution of video she'd like to play for episode
+    """
+    episode = CRAPI.GetEpisodeDict(mediaId)
+    startTime = datetime.utcnow()
+    dir = MediaContainer(title1="Play Options",title2=sender.itemTitle,disabledViewModes=["Coverflow"])
+    if len(episode['availableResolutions']) == 0:
+        episode['availableResolutions'] = GetAvailResForMediaId(mediaId)
+        
+        # FIXME I guess it's better to have something than nothing? It was giving Key error
+        # on episode number (kinda silly now since we require the cache...)
+        if str(mediaId) not in Dict['episodes']:
+            Dict['episodes'][str(mediaId)] = episode
+    
+        Dict['episodes'][str(mediaId)]['availableResolutions'] = episode['availableResolutions']
+    videoInfo = CRAPI.GetVideoInfo(mediaId, episode['availableResolutions'])
+    videoInfo['small'] = (CRAPI.HasPaid() and CRAPI.IsPremium(episode.get("category"))) is False
+
+    # duration must be specified before the redirect in PlayVideo()! If not, your device
+    # will not recognize the play time.
+    try:
+        duration = int(episode.get('duration'))
+    except TypeError:
+        duration = 0
+
+    if Prefs['quality'] == "Ask":
+        for q in episode['availableResolutions']:
+            videoUrl = CRAPI.GetVideoUrl(videoInfo, q)
+            episodeItem = Function(WebVideoItem(PlayVideo, title=Resolution2Quality[q], duration=duration), mediaId=mediaId, resolution=q )
+            dir.Append(episodeItem)
+    else:
+        prefRes = GetPrefRes(episode['availableResolutions'])
+        videoUrl = GetVideoUrl(videoInfo, prefRes)
+        buttonText = "Play at %sp" % str(prefRes)
+        episodeItem = Function(WebVideoItem(PlayVideo, title=buttonText, duration=duration), mediaId=mediaId, resolution = prefRes)
+        dir.Append(episodeItem)
+    dtime = datetime.utcnow()-startTime
+    Log.Debug("PlayVideoMenu (%s) execution time: %s"%(episode['title'], dtime))
+    return dir
+
+def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
+    from datetime import datetime
+    
+    if Prefs['restart'] == "Restart":
+        CRAPI.DeleteFlashJunk()
+
+    episode = CRAPI.GetEpisodeDict(mediaId)
+    if episode:
+        
+        cat = episode.get("category")
+        if cat == "Anime":
+            checkCat = ANIME_TYPE
+        elif cat == "Drama":
+            checkCat = DRAMA_TYPE
+        else:
+            checkCat = None
+
+                    
+        if CRAPI.HasPaid() and CRAPI.IsPremium(checkCat):
+            return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+        else:
+            return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
+    else:
+        # hm....
+        return None # messagecontainer doesn't work here.
+        
+def PlayVideoPremium(sender, mediaId, resolution):
+    # It's really easy to set resolution with direct grab of stream.
+    # Only premium members get better resolutions.
+    # so the solution is to have 2 destinations: freebie (web player), or premium (direct).
+
+    CRAPI.Login()
+    episode = CRAPI.GetEpisodeDict(mediaId)
+    theUrl = CRAPI._MEDIA_URL + str(mediaId)
+    resolutions = CRAPI.GetAvailResForMediaId(mediaId)
+    vidInfo = CRAPI.GetVideoInfo(mediaId, resolutions)
+    vidInfo['small'] = 0
+
+    if episode.get('duration') and episode['duration'] > 0:
+        duration = episode['duration']
+    else:
+        duration = vidInfo['duration'] # need this because duration isn't known until now
+
+    bestRes = resolution
+
+    if Prefs['quality'] != "Ask":
+        bestRes = CRAPI.GetPrefRes(resolutions)
+    
+    bestRes = int(bestRes)
+    
+    Log.Debug("Best res: " + str(bestRes))
+
+    # we need to tell server so they send the right quality
+    CRAPI.SetPrefResolution(int(bestRes))
+            
+    # FIXME: have to account for drama vs anime premium!
+    modUrl = CRAPI.GetVideoUrl(vidInfo, bestRes) # get past mature wall... hacky I know
+    
+    req = HTTP.Request(modUrl, immediate=True, cacheTime=10*60*60)    #hm, cache time might mess up login/logout
+
+    match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+    if not match:
+        # bad news
+        Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+        Log.Debug(req.content)
+        theUrl = theUrl
+    else:
+        theUrl = match.group(2)    + "&__qual=" + str(bestRes)
+
+    # try a manual redirect since redirects crash entire PMS
+    import urllib2
+    req = urllib2.urlopen(theUrl)
+    theUrl = req.geturl() 
+    req.close()
+    
+    Log.Debug("##########final URL is '%s'" % theUrl)
+    #Log.Debug("##########duration: %s" % str(duration))
+    
+    testEmbed(mediaId)
+
+    return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
+    
+def PlayVideoFreebie(sender, mediaId):
+    """
+    Play a freebie video using the direct method. As long as crunchyroll.com delivers ads
+    through the direct stream (they do as of Feb 14 2012), this is okay IMO. This gets
+    around crashes with redirects/content changes of video page, and sacrifices the ability
+    to use javascript in the site config.
+    """
+    episode = CRAPI.GetEpisodeDict(mediaId)
+    infoUrl = CRAPI._MEDIA_URL + str(mediaId) + "?p360=1&skip_wall=1&t=0&small=0&wide=0"
+
+    req = HTTP.Request(infoUrl, immediate=True, cacheTime=10*60*60)    #hm, cache time might mess up login/logout
+
+    match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+    if not match:
+        # bad news
+        Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+        Log.Debug(req.content)
+        theUrl = infoUrl
+    else:
+        theUrl = match.group(2)    + "&__qual=360"
+
+    Log.Debug("###pre-redirect URL: %s" % theUrl)
+
+    # try a manual redirect since redirects crash entire PMS
+    import urllib2
+    req = urllib2.urlopen(theUrl)
+    theUrl = req.geturl() 
+    req.close()
+
+    Log.Debug("####Final URL: %s" % theUrl)
+    duration = episode.get('duration')
+    if not duration:  duration = 0
+    
+    return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
