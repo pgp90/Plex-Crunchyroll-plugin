@@ -57,9 +57,9 @@ def Start():
         resetAuthInfo()
         
     
-#    Dict['episodes'] = None
-#    Dict['series'] = None
-#    Dict['seasons'] = None
+    Dict['episodes'] = None
+    Dict['series'] = None
+    Dict['seasons'] = None
     #loginAtStart()
     if 'episodes' not in Dict:
         Dict['episodes'] = {}
