@@ -612,7 +612,59 @@ def PlayVideoFreebie(sender, mediaId):
     if not duration:  duration = 0
     
     return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
+
+def PlayVideoPopup(sender, mediaId):
+    login()
+    episode = GetEpisodeDict(mediaId)
+    theUrl = MEDIA_URL + str(mediaId)
+    resolutions = GetAvailResForMediaId(mediaId)
+    vidInfo = GetVideoInfo(mediaId, resolutions)
+    vidInfo['small'] = 0
+
+    if episode.get('duration') and episode['duration'] > 0:
+        duration = episode['duration']
+    else:
+        duration = vidInfo['duration'] # need this because duration isn't known until now
+
+    bestRes = resolution
+
+    if Prefs['quality'] != "Ask":
+        bestRes = GetPrefRes(resolutions)
     
+    bestRes = int(bestRes)
+    
+    Log.Debug("Best res: " + str(bestRes))
+
+    # we need to tell server so they send the right quality
+    SetPrefResolution(int(bestRes))
+            
+    # FIXME: have to account for drama vs anime premium!
+    modUrl = GetVideoUrl(vidInfo, bestRes) # get past mature wall... hacky I know
+    
+    req = HTTP.Request(modUrl, immediate=True, cacheTime=10*60*60)    #hm, cache time might mess up login/logout
+
+    match = re.match(r'^.*(<link *rel *= *"video_src" *href *= *")(http:[^"]+).*$', repr(req.content), re.MULTILINE)
+    if not match:
+        # bad news
+        Log.Error("###########Could not find direct swf link, trying hail mary pass...")
+        Log.Debug(req.content)
+        theUrl = theUrl
+    else:
+        theUrl = match.group(2)    + "&__qual=" + str(bestRes)
+
+    # try a manual redirect since redirects crash entire PMS
+    import urllib2
+    req = urllib2.urlopen(theUrl)
+    theUrl = req.geturl() 
+    req.close()
+    
+    Log.Debug("##########final URL is '%s'" % theUrl)
+    #Log.Debug("##########duration: %s" % str(duration))
+    
+    testEmbed(mediaId)
+
+    return Redirect(WebVideoItem(theUrl, title = episode['title'], duration = duration, summary = makeEpisodeSummary(episode) ))
+        
 
 def getSortTitle(dictList):
     """
