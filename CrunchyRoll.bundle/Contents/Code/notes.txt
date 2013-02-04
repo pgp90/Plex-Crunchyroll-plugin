@@ -146,6 +146,20 @@ var Localization = {
   }
 };
 
+http://www.crunchyroll.com/popout?media_id=___&video_format=___&video_encode_quality=___&time=___
+
+height + 32 for the control bar
+quality	width	height
+10		640		360
+60		640		360
+70		640		360
+71		640		360
+20		854		480
+61		854		480
+30		1280	720
+62		1280	720
+
+
 var PopOut = {
   child: null,
   open: function (media_id, video_format, video_encode_quality, time) {
