@@ -57,9 +57,9 @@ def Start():
         resetAuthInfo()
         
     
-    Dict['episodes'] = None
-    Dict['series'] = None
-    Dict['seasons'] = None
+#    Dict['episodes'] = None
+#    Dict['series'] = None
+#    Dict['seasons'] = None
     #loginAtStart()
     if 'episodes' not in Dict:
         Dict['episodes'] = {}
@@ -172,8 +172,8 @@ def QueueEntryMenu(sender,queueInfo):
     for seasonId in series['seasonList']:
 		cacheEpisodeListForSeason(seasonId)
 		
-    thumb = getSeriesThumbUrl(series)#(s[sId]['thumb'] if (sId in s and s[sId]['thumb'] is not None) else R(CRUNCHYROLL_ICON))
-    art = getSeriesArtUrl(series)#(s[sId]['art'] if (sId in s and s[sId]['art'] is not None) else R(CRUNCHYROLL_ART))
+    thumb = getSeriesThumbUrl(series)
+    art = getSeriesArtUrl(series)
     if queueInfo['upNextMediaId'] is not None:
         nextEp = GetEpisodeDict(queueInfo['upNextMediaId'])#getEpInfoFromLink(queueInfo['epToPlay'])
         PlayNext = MakeEpisodeItem(nextEp)
@@ -275,7 +275,6 @@ def AlphaListMenu(sender,type=None,query=None):
                 dir.Append(MakeSeriesItem(series))
         dtime = Datetime.Now()-startTime
         Log.Debug("AlphaListMenu %s (%s) execution time: %s"%(type, query, dtime))
-        #listThumbs2()    
     else:
         dir = MediaContainer(disabledViewModes=["Coverflow"], title1=sender.title1, title2=sender.itemTitle)
         characters = ['All', '#', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z']
@@ -468,17 +467,19 @@ def PlayVideoMenu(sender, mediaId):
         # FIXME I guess it's better to have something than nothing? It was giving Key error
         # on episode number (kinda silly now since we require the cache...)
         if str(mediaId) not in Dict['episodes']:
+            Log.Warning("Something stupid is happening with the Dict......")
             Dict['episodes'][str(mediaId)] = episode
     
         Dict['episodes'][str(mediaId)]['availableResolutions'] = episode['availableResolutions']
     videoInfo = GetVideoInfo(mediaId, episode['availableResolutions'])
-    videoInfo['small'] = (hasPaid() and isPremium(episode.get("category"))) is False
+#    videoInfo['small'] = (hasPaid() and isPremium(episode.get("category"))) is False
 
     # duration must be specified before the redirect in PlayVideo()! If not, your device
     # will not recognize the play time.
     try:
         duration = int(episode.get('duration'))
     except TypeError:
+        Log.Debug("Unable to get the duration of the episode.")
         duration = 0
 
     if Prefs['quality'] == "Ask":
@@ -497,14 +498,12 @@ def PlayVideoMenu(sender, mediaId):
     return dir
 
 def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary = None, mediaId=None, modifyUrl=False, premium=False):
-    from datetime import datetime
-    
     if Prefs['restart'] == "Restart":
+        #TODO: Is there a better way to restart the playback?
         deleteFlashJunk()
 
     episode = GetEpisodeDict(mediaId)
     if episode:
-        
         cat = episode.get("category")
         if cat == "Anime":
             checkCat = ANIME_TYPE
@@ -512,31 +511,27 @@ def PlayVideo(sender, mediaId, resolution=360): # url, title, duration, summary 
             checkCat = DRAMA_TYPE
         else:
             checkCat = None
-
                     
         if hasPaid() and isPremium(checkCat):
             return PlayVideoPremium(sender, mediaId, resolution) #url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
         else:
             return PlayVideoFreebie(sender, mediaId) # (sender,url, title, duration, summary=summary, mediaId=mediaId, modifyUrl=modifyUrl, premium=premium)
     else:
-        # hm....
+        Log.Debug("What just happened? Somehow, we got a media that was not in the list....")
         return None # messagecontainer doesn't work here.
         
 def PlayVideoPremium(sender, mediaId, resolution):
-    # It's really easy to set resolution with direct grab of stream.
-    # Only premium members get better resolutions.
-    # so the solution is to have 2 destinations: freebie (web player), or premium (direct).
-
     login()
     episode = GetEpisodeDict(mediaId)
     theUrl = MEDIA_URL + str(mediaId)
     resolutions = GetAvailResForMediaId(mediaId)
     vidInfo = GetVideoInfo(mediaId, resolutions)
-    vidInfo['small'] = 0
+#    vidInfo['small'] = 0
 
     if episode.get('duration') and episode['duration'] > 0:
         duration = episode['duration']
     else:
+        Log.Debug("had to use other duration information source")
         duration = vidInfo['duration'] # need this because duration isn't known until now
 
     bestRes = resolution
@@ -586,7 +581,7 @@ def PlayVideoFreebie(sender, mediaId):
     to use javascript in the site config.
     """
     episode = GetEpisodeDict(mediaId)
-    infoUrl = MEDIA_URL + str(mediaId) + "?p360=1&skip_wall=1&t=0&small=0&wide=0"
+    infoUrl = MEDIA_URL + str(mediaId) + "?p360=1&skip_wall=1&t=0"
 
     req = HTTP.Request(infoUrl, immediate=True, cacheTime=10*60*60)    #hm, cache time might mess up login/logout
 
@@ -1693,7 +1688,7 @@ def GetVideoInfo(mediaId, availRes):
         except (ValueError, TypeError): episodeInfo['episodeNum'] = 0
     else: episodeInfo['duration'] = 0
     
-    episodeInfo['wide'] = (ratio > 1.5)
+#    episodeInfo['wide'] = (ratio > 1.5)
     return episodeInfo
 
 def GetAvailResForMediaId(mediaId):
@@ -1808,8 +1803,8 @@ def GetVideoUrl(videoInfo, resolution):
     url = videoInfo['baseUrl']+"?p" + str(resolution) + "=1"
     url = url + "&skip_wall=1"
     url = url + ("&t=0" if Prefs['restart'] == 'Restart' else "")
-    url = url + "&small="+("1" if videoInfo['small'] is True else "0")
-    url = url + "&wide="+("1" if videoInfo['wide'] is True or JUST_USE_WIDE is True else "0")
+#    url = url + "&small="+("1" if videoInfo['small'] is True else "0")
+#    url = url + "&wide="+("1" if videoInfo['wide'] is True or JUST_USE_WIDE is True else "0")
     return url
 
 
@@ -1853,7 +1848,10 @@ def DumpInfo(sender):
 def ClearAllData(sender):
     HTTP.ClearCookies()
     HTTP.ClearCache()
-#    Dict = {}
+#    Dict['episodes'] = None
+#    Dict['series'] = None
+#    Dict['seasons'] = None
+    Dict = {}
 #    Dict.Reset() #OMG this doesn't work. Just delete the file at Plug-in support/com.plexapp.plugins.CrunchyRoll
 #    Dict.Save()
     Log.Debug(Prefs)
